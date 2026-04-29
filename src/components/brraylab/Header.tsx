@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { Menu, ShoppingBag, User, X } from "lucide-react";
 import { Logo } from "./Logo";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 const links = [
@@ -17,6 +18,7 @@ export const Header = () => {
   const [open, setOpen] = useState(false);
   const [pop, setPop] = useState(false);
   const { count, openMini } = useCart();
+  const { user } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -67,7 +69,14 @@ export const Header = () => {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <Link
+            to={user ? "/mi-cuenta" : "/auth/login"}
+            className="hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground/90 hover:bg-surface transition-colors"
+            aria-label={user ? "Mi cuenta" : "Iniciar sesión"}
+          >
+            <User className="h-5 w-5" />
+          </Link>
           <button
             onClick={openMini}
             className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground/90 hover:bg-surface transition-colors"
@@ -107,6 +116,12 @@ export const Header = () => {
                 {l.label}
               </Link>
             ))}
+            <Link
+              to={user ? "/mi-cuenta" : "/auth/login"}
+              className="px-3 py-3 rounded-lg text-base font-medium hover:bg-surface transition-colors border-t border-subtle mt-2 pt-3 text-primary-glow"
+            >
+              {user ? "Mi cuenta" : "Iniciar sesión"}
+            </Link>
           </nav>
         </div>
       )}
