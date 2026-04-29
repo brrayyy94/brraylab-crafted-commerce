@@ -1,0 +1,172 @@
+import { Link } from "react-router-dom";
+import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Users, Star } from "lucide-react";
+import heroImg from "@/assets/hero-airpods.jpg";
+import { categories, products, reviews } from "@/data/products";
+import { ProductCard } from "@/components/brraylab/ProductCard";
+
+const Home = () => {
+  const featured = products.slice(0, 4);
+
+  return (
+    <>
+      {/* HERO */}
+      <section className="relative min-h-[92vh] flex items-center overflow-hidden">
+        <div className="absolute inset-0 -z-10">
+          <img
+            src={heroImg}
+            alt=""
+            className="h-full w-full object-cover opacity-90"
+            width={1920}
+            height={1200}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/30 to-background" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/40" />
+        </div>
+
+        <div className="container relative z-10 pt-24 pb-16">
+          <div className="max-w-2xl space-y-7 animate-fade-up">
+            <span className="inline-flex h-7 items-center px-3 rounded-full bg-primary/20 backdrop-blur-md border border-primary/30 text-xs font-medium text-primary-glow tracking-wider uppercase">
+              Donde nace la tecnología
+            </span>
+            <h1 className="font-display font-extrabold text-5xl md:text-7xl lg:text-8xl leading-[0.95]">
+              Tecnología
+              <br />
+              <span className="text-primary-glow">a tu nivel</span>
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-xl font-light">
+              No vendemos para todo el mundo. Vendemos para los que ya saben que barato sale caro.
+            </p>
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Link
+                to="/tienda"
+                className="group inline-flex items-center gap-2 h-12 px-7 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all duration-300 active:scale-95 shadow-purple"
+              >
+                Ver productos
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <Link
+                to="/nosotros"
+                className="inline-flex items-center h-12 px-7 rounded-full border border-foreground/20 backdrop-blur-md hover:bg-foreground/5 hover:border-primary-glow font-medium transition-all duration-300"
+              >
+                ¿Qué es BrrayLab?
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* scroll cue */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-widest uppercase animate-fade-in">
+          Desliza
+        </div>
+      </section>
+
+      {/* CATEGORÍAS */}
+      <section className="container py-20 md:py-28">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-primary-glow mb-2">Categorías</p>
+            <h2 className="font-display font-extrabold text-3xl md:text-5xl">Encuentra lo tuyo</h2>
+          </div>
+          <Link to="/tienda" className="text-sm text-muted-foreground hover:text-primary-glow transition-colors inline-flex items-center gap-1">
+            Ver todo <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {categories.slice(0, 4).map((cat) => (
+            <Link
+              key={cat.slug}
+              to={`/tienda?cat=${cat.slug}`}
+              className="group relative aspect-square rounded-xl bg-surface border border-subtle overflow-hidden product-card"
+            >
+              <img
+                src={cat.image}
+                alt={cat.name}
+                loading="lazy"
+                className="product-image absolute inset-0 h-full w-full object-cover opacity-80 group-hover:opacity-100"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+              <div className="absolute inset-0 p-5 flex flex-col justify-end">
+                <h3 className="font-display font-bold text-base md:text-lg leading-tight group-hover:text-primary-glow transition-colors">
+                  {cat.name}
+                </h3>
+                <span className="text-xs text-muted-foreground mt-1 inline-flex items-center gap-1">
+                  Explorar <ArrowRight className="h-3 w-3" />
+                </span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* FAVORITOS */}
+      <section className="container py-12 md:py-20">
+        <div className="mb-10">
+          <p className="text-xs uppercase tracking-widest text-primary-glow mb-2">Lo más pedido</p>
+          <h2 className="font-display font-extrabold text-3xl md:text-5xl">Los favoritos de la tribu</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          {featured.map((p) => (
+            <ProductCard key={p.slug} product={p} />
+          ))}
+        </div>
+        <div className="mt-10 text-center">
+          <Link
+            to="/tienda"
+            className="inline-flex items-center gap-2 h-11 px-6 rounded-full border border-subtle hover:border-primary-glow hover:bg-primary/10 transition-all"
+          >
+            Ver toda la tienda <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+
+      {/* TRUST */}
+      <section className="container py-16 md:py-24">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-4 rounded-2xl bg-surface border border-subtle p-8 md:p-10">
+          {[
+            { icon: BadgeCheck, label: "Productos probados", desc: "Calidad antes que catálogo." },
+            { icon: ShieldCheck, label: "Garantía incluida", desc: "Respaldamos lo que vendemos." },
+            { icon: Truck, label: "Envío a Colombia", desc: "Bogotá, Cali, Medellín y más." },
+            { icon: Users, label: "Miles de clientes", desc: "La tribu sigue creciendo." },
+          ].map((t) => (
+            <div key={t.label} className="text-center md:text-left flex flex-col items-center md:items-start gap-2">
+              <div className="h-11 w-11 rounded-xl bg-primary/15 flex items-center justify-center text-primary-glow">
+                <t.icon className="h-5 w-5" />
+              </div>
+              <h3 className="font-display font-bold text-sm">{t.label}</h3>
+              <p className="text-xs text-muted-foreground">{t.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* RESEÑAS */}
+      <section className="container py-16 md:py-24">
+        <div className="text-center mb-12">
+          <p className="text-xs uppercase tracking-widest text-primary-glow mb-2">Reseñas reales</p>
+          <h2 className="font-display font-extrabold text-3xl md:text-5xl">Lo que dice la tribu</h2>
+        </div>
+        <div className="grid md:grid-cols-3 gap-5">
+          {reviews.map((r, i) => (
+            <div
+              key={i}
+              className="rounded-xl bg-surface border border-subtle p-6 flex flex-col gap-4 hover:border-primary/40 transition-colors"
+            >
+              <div className="flex gap-0.5 text-primary-glow">
+                {Array.from({ length: r.rating }).map((_, idx) => (
+                  <Star key={idx} className="h-4 w-4 fill-current" />
+                ))}
+              </div>
+              <p className="text-sm text-foreground/90 leading-relaxed">"{r.comment}"</p>
+              <div className="mt-auto pt-3 border-t border-subtle">
+                <p className="font-medium text-sm">{r.name}</p>
+                <p className="text-xs text-muted-foreground">{r.city}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+};
+
+export default Home;
