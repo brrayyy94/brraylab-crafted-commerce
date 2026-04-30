@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import { categories, products } from "@/data/products";
+import { useProducts, useCategories } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/brraylab/ProductCard";
 import { cn } from "@/lib/utils";
 
 type Sort = "destacado" | "nuevo" | "menor" | "mayor";
 
 const Shop = () => {
+  const { data: products = [], isLoading } = useProducts();
+  const { data: categories = [] } = useCategories();
   const [params, setParams] = useSearchParams();
   const initialCat = params.get("cat") ?? "all";
   const [cat, setCat] = useState<string>(initialCat);
