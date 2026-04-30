@@ -2,21 +2,28 @@ import { Link, useParams, Navigate } from "react-router-dom";
 import { useState } from "react";
 import { ChevronRight, Lock, Truck, ShieldCheck, MessageCircle, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { getProductBySlug, products, formatPrice } from "@/data/products";
+import { formatPrice } from "@/data/products";
+import { useProduct, useProducts } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/brraylab/ProductCard";
 import { useCart } from "@/context/CartContext";
 import { cn } from "@/lib/utils";
 
 const ProductDetail = () => {
   const { slug } = useParams();
-  const product = slug ? getProductBySlug(slug) : undefined;
+  const { data: product, isLoading } = useProduct(slug);
+  const { data: allProducts = [] } = useProducts();
   const { add } = useCart();
   const [tab, setTab] = useState<"desc" | "feat" | "rev">("desc");
   const [qty, setQty] = useState(1);
 
+  if (isLoading) {
+    return (
+      <section className="container py-24 text-center text-muted-foreground">Cargando…</section>
+    );
+  }
   if (!product) return <Navigate to="/tienda" replace />;
 
-  const related = products.filter((p) => p.categorySlug === product.categorySlug && p.slug !== product.slug).slice(0, 4);
+  const related = allProducts.filter((p) => p.categorySlug === product.categorySlug && p.slug !== product.slug).slice(0, 4);
 
   const handleAdd = () => {
     add(product, qty);

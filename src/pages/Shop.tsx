@@ -143,7 +143,13 @@ const Shop = () => {
             </button>
           </div>
 
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="aspect-square rounded-xl bg-surface border border-subtle animate-pulse" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="py-20 text-center text-muted-foreground">
               <p>No encontramos productos con ese filtro.</p>
             </div>
