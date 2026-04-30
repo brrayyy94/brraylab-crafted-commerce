@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
 import { Instagram, MessageCircle } from "lucide-react";
 import { Logo } from "./Logo";
-import { categories } from "@/data/products";
+
+const categories = [
+  { slug: "audifonos", name: "Audífonos & AirPods" },
+  { slug: "smartwatches", name: "Smartwatches" },
+  { slug: "cargadores", name: "Cargadores & PowerBank" },
+  { slug: "kits-creadores", name: "Kits Creadores" },
+  { slug: "cables", name: "Cables & Conectividad" },
+];
 
 export const Footer = () => (
   <footer className="border-t border-subtle bg-background mt-24">

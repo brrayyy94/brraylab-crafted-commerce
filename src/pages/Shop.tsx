@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import { categories, products } from "@/data/products";
+import { useProducts, useCategories } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/brraylab/ProductCard";
 import { cn } from "@/lib/utils";
 
 type Sort = "destacado" | "nuevo" | "menor" | "mayor";
 
 const Shop = () => {
+  const { data: products = [], isLoading } = useProducts();
+  const { data: categories = [] } = useCategories();
   const [params, setParams] = useSearchParams();
   const initialCat = params.get("cat") ?? "all";
   const [cat, setCat] = useState<string>(initialCat);
@@ -141,7 +143,13 @@ const Shop = () => {
             </button>
           </div>
 
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="aspect-square rounded-xl bg-surface border border-subtle animate-pulse" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="py-20 text-center text-muted-foreground">
               <p>No encontramos productos con ese filtro.</p>
             </div>

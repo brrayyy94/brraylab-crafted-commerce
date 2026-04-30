@@ -10,6 +10,8 @@ import Home from "./pages/Home";
 import Shop from "./pages/Shop";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import OrderConfirmed from "./pages/OrderConfirmed";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
@@ -48,6 +50,8 @@ const App = () => (
                 <Route path="/tienda" element={<Shop />} />
                 <Route path="/producto/:slug" element={<ProductDetail />} />
                 <Route path="/carrito" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/orden/:number" element={<OrderConfirmed />} />
                 <Route path="/nosotros" element={<About />} />
                 <Route path="/contacto" element={<Contact />} />
 

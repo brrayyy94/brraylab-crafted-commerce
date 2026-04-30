@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Users, Star } from "lucide-react";
 import heroImg from "@/assets/hero-airpods.jpg";
-import { categories, products, reviews } from "@/data/products";
+import { reviews } from "@/data/products";
+import { useProducts, useCategories } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/brraylab/ProductCard";
 
 const Home = () => {
+  const { data: products = [] } = useProducts();
+  const { data: categories = [] } = useCategories();
   const featured = products.slice(0, 4);
 
   return (
