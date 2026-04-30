@@ -86,9 +86,12 @@ const Cart = () => {
             <span className="font-display font-extrabold text-2xl text-primary-glow">{formatPrice(subtotal)}</span>
           </div>
 
-          <button className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all active:scale-[0.97] shadow-purple">
+          <Link
+            to="/checkout"
+            className="w-full h-12 inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all active:scale-[0.97] shadow-purple"
+          >
             Proceder al pago
-          </button>
+          </Link>
 
           <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2">
             <span className="inline-flex items-center gap-1"><Lock className="h-3.5 w-3.5" /> Seguro</span>
