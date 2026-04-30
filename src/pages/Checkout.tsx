@@ -43,7 +43,7 @@ const stepLabels: Record<Step, string> = {
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, subtotal, clear } = useCart();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
 
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
@@ -59,17 +59,17 @@ const Checkout = () => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Prefill con perfil cuando esté logueado
+  // Prefill con datos del usuario logueado
   useEffect(() => {
     if (user) {
       setForm((f) => ({
         ...f,
-        full_name: f.full_name || profile?.name || "",
+        full_name: f.full_name || (user.user_metadata?.name as string) || "",
         email: f.email || user.email || "",
-        phone: f.phone || profile?.phone || "",
+        phone: f.phone || (user.user_metadata?.phone as string) || "",
       }));
     }
-  }, [user, profile]);
+  }, [user]);
 
   const shippingCost = subtotal >= SHIPPING_FREE_THRESHOLD ? 0 : items.length > 0 ? SHIPPING_COST : 0;
   const total = subtotal + shippingCost;
