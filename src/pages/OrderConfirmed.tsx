@@ -126,6 +126,26 @@ const OrderConfirmed = () => {
           </div>
         </div>
 
+        {!user && order.guest_email && (
+          <div className="mt-10 rounded-xl border border-primary/30 bg-primary/5 p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="h-12 w-12 rounded-full bg-primary/15 flex items-center justify-center text-primary-glow shrink-0">
+              <UserPlus className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium">¿Quieres hacer seguimiento de tu pedido?</p>
+              <p className="text-sm text-muted-foreground">
+                Crea tu cuenta gratis con <span className="text-foreground">{order.guest_email}</span> y consulta tu historial cuando quieras.
+              </p>
+            </div>
+            <Link
+              to={`/auth/registro?redirect=/mi-cuenta/pedidos`}
+              className="inline-flex h-11 items-center px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-glow transition-colors shrink-0"
+            >
+              Crear cuenta
+            </Link>
+          </div>
+        )}
+
         <div className="text-center mt-10">
           <Link to="/tienda" className="inline-flex h-12 items-center px-7 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-colors shadow-purple">
             Seguir comprando
