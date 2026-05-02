@@ -21,7 +21,9 @@ const Login = () => {
   const [oauthLoading, setOauthLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? "/mi-cuenta";
+  const params = new URLSearchParams(location.search);
+  const redirectParam = params.get("redirect");
+  const from = redirectParam ?? (location.state as { from?: string } | null)?.from ?? "/mi-cuenta";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +128,7 @@ const Login = () => {
 
         <p className="text-sm text-muted-foreground text-center mt-6">
           ¿No tienes cuenta?{" "}
-          <Link to="/auth/registro" className="text-primary-glow hover:underline">
+          <Link to={`/auth/registro${redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : ""}`} className="text-primary-glow hover:underline">
             Crear cuenta
           </Link>
         </p>
