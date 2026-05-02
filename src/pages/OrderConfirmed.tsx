@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CheckCircle2, Package, MapPin, Receipt } from "lucide-react";
+import { CheckCircle2, Package, MapPin, Receipt, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/data/products";
+import { useAuth } from "@/context/AuthContext";
 
 type OrderRow = {
   id: string;
@@ -15,12 +16,15 @@ type OrderRow = {
   total: number;
   notes: string | null;
   created_at: string;
+  user_id: string | null;
+  guest_email: string | null;
 };
 type ItemRow = { id: string; name: string; price: number; quantity: number; image_url: string | null };
 type AddrRow = { full_name: string; phone: string; email: string; department: string; city: string; address: string; notes: string | null };
 
 const OrderConfirmed = () => {
   const { number } = useParams();
+  const { user } = useAuth();
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [addr, setAddr] = useState<AddrRow | null>(null);
@@ -33,7 +37,7 @@ const OrderConfirmed = () => {
       if (!number) return;
       const { data: o } = await supabase
         .from("orders")
-        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, notes, created_at")
+        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, notes, created_at, user_id, guest_email")
         .eq("order_number", number)
         .maybeSingle();
       if (cancelled) return;
