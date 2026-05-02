@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { Lock, ShieldCheck, Truck, ChevronLeft, Loader2 } from "lucide-react";
+import { Lock, ShieldCheck, Truck, ChevronLeft, Loader2, UserCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -47,6 +47,7 @@ const Checkout = () => {
 
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
+  const [guestMode, setGuestMode] = useState(false);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -209,29 +210,61 @@ const Checkout = () => {
           <div className="rounded-xl bg-surface border border-subtle p-6 md:p-8 space-y-6">
             {step === 1 && (
               <>
-                <h2 className="font-display font-bold text-xl">Datos de contacto</h2>
-                <Field
-                  label="Nombre completo"
-                  value={form.full_name}
-                  onChange={(v) => update("full_name", v)}
-                  error={errors.full_name}
-                  placeholder="Andrés Martínez"
-                />
-                <Field
-                  label="Email"
-                  type="email"
-                  value={form.email}
-                  onChange={(v) => update("email", v)}
-                  error={errors.email}
-                  placeholder="tu@email.com"
-                />
-                <Field
-                  label="Teléfono / WhatsApp"
-                  value={form.phone}
-                  onChange={(v) => update("phone", v)}
-                  error={errors.phone}
-                  placeholder="3001234567"
-                />
+                {!user && !guestMode && (
+                  <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <UserCircle2 className="h-6 w-6 text-primary-glow shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-sm">¿Ya tienes cuenta?</p>
+                        <p className="text-sm text-muted-foreground">
+                          Inicia sesión para ver tu historial de pedidos y autocompletar tus datos.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                      <Link
+                        to="/auth/login?redirect=/checkout"
+                        className="flex-1 inline-flex items-center justify-center h-11 px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-glow transition-colors"
+                      >
+                        Iniciar sesión
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => setGuestMode(true)}
+                        className="flex-1 inline-flex items-center justify-center h-11 px-5 rounded-lg bg-surface-elevated border border-subtle text-sm font-medium hover:border-primary-glow transition-colors"
+                      >
+                        Continuar como invitado
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {(user || guestMode) && (
+                  <>
+                    <h2 className="font-display font-bold text-xl">Datos de contacto</h2>
+                    <Field
+                      label="Nombre completo"
+                      value={form.full_name}
+                      onChange={(v) => update("full_name", v)}
+                      error={errors.full_name}
+                      placeholder="Andrés Martínez"
+                    />
+                    <Field
+                      label="Email"
+                      type="email"
+                      value={form.email}
+                      onChange={(v) => update("email", v)}
+                      error={errors.email}
+                      placeholder="tu@email.com"
+                    />
+                    <Field
+                      label="Teléfono / WhatsApp"
+                      value={form.phone}
+                      onChange={(v) => update("phone", v)}
+                      error={errors.phone}
+                      placeholder="3001234567"
+                    />
+                  </>
+                )}
               </>
             )}
 
@@ -321,7 +354,7 @@ const Checkout = () => {
             )}
 
             <div className="flex justify-end pt-2">
-              {step < 3 ? (
+              {step === 1 && !user && !guestMode ? null : step < 3 ? (
                 <button
                   onClick={goNext}
                   className="h-12 px-7 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all active:scale-[0.97] shadow-purple"

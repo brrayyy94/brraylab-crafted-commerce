@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CheckCircle2, Package, MapPin, Receipt } from "lucide-react";
+import { CheckCircle2, Package, MapPin, Receipt, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/data/products";
+import { useAuth } from "@/context/AuthContext";
 
 type OrderRow = {
   id: string;
@@ -15,12 +16,15 @@ type OrderRow = {
   total: number;
   notes: string | null;
   created_at: string;
+  user_id: string | null;
+  guest_email: string | null;
 };
 type ItemRow = { id: string; name: string; price: number; quantity: number; image_url: string | null };
 type AddrRow = { full_name: string; phone: string; email: string; department: string; city: string; address: string; notes: string | null };
 
 const OrderConfirmed = () => {
   const { number } = useParams();
+  const { user } = useAuth();
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [addr, setAddr] = useState<AddrRow | null>(null);
@@ -33,7 +37,7 @@ const OrderConfirmed = () => {
       if (!number) return;
       const { data: o } = await supabase
         .from("orders")
-        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, notes, created_at")
+        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, notes, created_at, user_id, guest_email")
         .eq("order_number", number)
         .maybeSingle();
       if (cancelled) return;
@@ -121,6 +125,26 @@ const OrderConfirmed = () => {
             </div>
           </div>
         </div>
+
+        {!user && order.guest_email && (
+          <div className="mt-10 rounded-xl border border-primary/30 bg-primary/5 p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <div className="h-12 w-12 rounded-full bg-primary/15 flex items-center justify-center text-primary-glow shrink-0">
+              <UserPlus className="h-6 w-6" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium">¿Quieres hacer seguimiento de tu pedido?</p>
+              <p className="text-sm text-muted-foreground">
+                Crea tu cuenta gratis con <span className="text-foreground">{order.guest_email}</span> y consulta tu historial cuando quieras.
+              </p>
+            </div>
+            <Link
+              to={`/auth/registro?redirect=/mi-cuenta/pedidos`}
+              className="inline-flex h-11 items-center px-5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-glow transition-colors shrink-0"
+            >
+              Crear cuenta
+            </Link>
+          </div>
+        )}
 
         <div className="text-center mt-10">
           <Link to="/tienda" className="inline-flex h-12 items-center px-7 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-colors shadow-purple">

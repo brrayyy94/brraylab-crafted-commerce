@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import { Layout } from "@/components/brraylab/Layout";
 import { ProtectedRoute } from "@/components/brraylab/ProtectedRoute";
+import { ScrollToTop } from "@/components/brraylab/ScrollToTop";
 import Home from "./pages/Home";
 import Shop from "./pages/Shop";
 import ProductDetail from "./pages/ProductDetail";
@@ -42,6 +43,7 @@ const App = () => (
         }}
       />
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <CartProvider>
             <Layout>
