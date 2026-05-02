@@ -354,7 +354,7 @@ const Checkout = () => {
             )}
 
             <div className="flex justify-end pt-2">
-              {step < 3 ? (
+              {step === 1 && !user && !guestMode ? null : step < 3 ? (
                 <button
                   onClick={goNext}
                   className="h-12 px-7 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all active:scale-[0.97] shadow-purple"
