@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { Lock, ShieldCheck, Truck, ChevronLeft, Loader2 } from "lucide-react";
+import { Lock, ShieldCheck, Truck, ChevronLeft, Loader2, UserCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
