@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -22,6 +22,9 @@ const Register = () => {
   const [oauthLoading, setOauthLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectParam = new URLSearchParams(location.search).get("redirect");
+  const redirectTo = redirectParam ?? "/mi-cuenta";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +38,7 @@ const Register = () => {
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
-        emailRedirectTo: `${window.location.origin}/mi-cuenta`,
+        emailRedirectTo: `${window.location.origin}${redirectTo}`,
         data: {
           name: parsed.data.name,
           phone: parsed.data.phone ?? "",
@@ -54,7 +57,7 @@ const Register = () => {
   const handleGoogle = async () => {
     setOauthLoading(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/mi-cuenta",
+      redirect_uri: window.location.origin + redirectTo,
     });
     if (result.error) {
       setOauthLoading(false);
@@ -62,7 +65,7 @@ const Register = () => {
       return;
     }
     if (result.redirected) return;
-    navigate("/mi-cuenta", { replace: true });
+    navigate(redirectTo, { replace: true });
   };
 
   if (submitted) {
