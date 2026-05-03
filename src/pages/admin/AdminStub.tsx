@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   Boxes,
   Check,
-  Eye,
   Loader2,
   MessageSquare,
   Package,
@@ -103,7 +102,7 @@ type ProductForm = {
   images: string[];
 };
 
-const navItems: Array<{ key: SectionKey; to: string; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+const navItems: Array<{ key: SectionKey; to: string; label: string; icon: ComponentType<{ className?: string }> }> = [
   { key: "dashboard", to: "/admin", label: "Dashboard", icon: BarChart3 },
   { key: "productos", to: "/admin/productos", label: "Productos", icon: Boxes },
   { key: "pedidos", to: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
@@ -253,7 +252,7 @@ const PageHeader = ({ eyebrow, title, action }: { eyebrow: string; title: string
   </div>
 );
 
-const MetricCard = ({ label, value, icon: Icon }: { label: string; value: string; icon: React.ComponentType<{ className?: string }> }) => (
+const MetricCard = ({ label, value, icon: Icon }: { label: string; value: string; icon: ComponentType<{ className?: string }> }) => (
   <div className="rounded-md border border-subtle bg-surface p-5">
     <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-md bg-primary/15 text-primary-glow">
       <Icon className="h-5 w-5" />
@@ -349,7 +348,7 @@ const DashboardSection = () => {
   );
 };
 
-const DataPanel = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const DataPanel = ({ title, children }: { title: string; children: ReactNode }) => (
   <div className="rounded-md border border-subtle bg-surface">
     <div className="border-b border-subtle px-5 py-4">
       <h2 className="font-display text-lg font-bold normal-case">{title}</h2>
@@ -719,7 +718,7 @@ const ProductsSection = () => {
   );
 };
 
-const FormField = ({ label, children }: { label: string; children: React.ReactNode }) => (
+const FormField = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="space-y-2">
     <Label>{label}</Label>
     {children}
