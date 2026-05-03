@@ -41,6 +41,12 @@
     --success: 145 63% 49%;             /* #2ecc71 */
     --success-foreground: 0 0% 5%;
 
+    --warning: 45 93% 58%;
+    --warning-foreground: 0 0% 5%;
+
+    --info: 204 88% 60%;
+    --info-foreground: 0 0% 5%;
+
     /* Borders & inputs */
     --border: 0 0% 100% / 0.08;
     --input: 0 0% 16%;
