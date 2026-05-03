@@ -24,7 +24,7 @@ export const ProtectedRoute = ({ children, requireAdmin }: Props) => {
   }
 
   if (requireAdmin && !isAdmin) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/inicio" replace />;
   }
 
   return <>{children}</>;

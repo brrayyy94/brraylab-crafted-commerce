@@ -49,6 +49,7 @@ const App = () => (
             <Layout>
               <Routes>
                 <Route path="/" element={<Home />} />
+                <Route path="/inicio" element={<Home />} />
                 <Route path="/tienda" element={<Shop />} />
                 <Route path="/producto/:slug" element={<ProductDetail />} />
                 <Route path="/carrito" element={<Cart />} />
@@ -80,7 +81,7 @@ const App = () => (
 
                 {/* Admin (protected + admin only) */}
                 <Route
-                  path="/admin"
+                  path="/admin/*"
                   element={
                     <ProtectedRoute requireAdmin>
                       <AdminStub />
