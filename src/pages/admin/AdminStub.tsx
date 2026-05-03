@@ -150,9 +150,6 @@ const slugify = (value: string) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-const formatDate = (value: string) =>
-  new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
-
 const formatShortDate = (value: string) =>
   new Intl.DateTimeFormat("es-CO", { dateStyle: "medium" }).format(new Date(value));
 
@@ -242,7 +239,7 @@ const AdminSidebar = () => (
   </aside>
 );
 
-const PageHeader = ({ eyebrow, title, action }: { eyebrow: string; title: string; action?: React.ReactNode }) => (
+const PageHeader = ({ eyebrow, title, action }: { eyebrow: string; title: string; action?: ReactNode }) => (
   <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
     <div>
       <p className="mb-2 text-xs uppercase tracking-widest text-primary-glow">{eyebrow}</p>
