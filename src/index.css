@@ -83,6 +83,7 @@
     @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    scroll-behavior: auto !important;
   }
 
   body {
