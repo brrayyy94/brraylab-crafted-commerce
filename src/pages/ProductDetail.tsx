@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { formatPrice } from "@/data/products";
 import { useProduct, useProducts } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/brraylab/ProductCard";
+import { ProductDetailSkeleton } from "@/components/brraylab/Skeletons";
 import { useCart } from "@/context/CartContext";
 import { cn } from "@/lib/utils";
 
@@ -20,9 +21,7 @@ const ProductDetail = () => {
   useEffect(() => { setActiveImage(0); }, [product?.id]);
 
   if (isLoading) {
-    return (
-      <section className="container py-24 text-center text-muted-foreground">Cargando…</section>
-    );
+    return <ProductDetailSkeleton />;
   }
   if (!product) return <Navigate to="/tienda" replace />;
 
