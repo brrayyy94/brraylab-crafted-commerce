@@ -15,6 +15,7 @@ const ProductDetail = () => {
   const { add } = useCart();
   const [tab, setTab] = useState<"desc" | "feat" | "rev">("desc");
   const [qty, setQty] = useState(1);
+  const [activeImage, setActiveImage] = useState(0);
 
   if (isLoading) {
     return (
