@@ -1,5 +1,5 @@
 import { Link, useParams, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronRight, Lock, Truck, ShieldCheck, MessageCircle, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { formatPrice } from "@/data/products";
@@ -15,6 +15,9 @@ const ProductDetail = () => {
   const { add } = useCart();
   const [tab, setTab] = useState<"desc" | "feat" | "rev">("desc");
   const [qty, setQty] = useState(1);
+  const [activeImage, setActiveImage] = useState(0);
+
+  useEffect(() => { setActiveImage(0); }, [product?.id]);
 
   if (isLoading) {
     return (
@@ -47,13 +50,7 @@ const ProductDetail = () => {
 
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Galería */}
-          <div className="relative aspect-square rounded-2xl bg-surface border border-subtle overflow-hidden group">
-            <img
-              src={product.image}
-              alt={product.name}
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
-          </div>
+          <ProductGallery images={product.images} name={product.name} active={activeImage} setActive={setActiveImage} />
 
           {/* Info */}
           <div className="flex flex-col gap-5">
@@ -177,4 +174,56 @@ const ProductDetail = () => {
   );
 };
 
+const ProductGallery = ({
+  images,
+  name,
+  active,
+  setActive,
+}: {
+  images: string[];
+  name: string;
+  active: number;
+  setActive: (i: number) => void;
+}) => {
+  const list = images.length ? images : ["/placeholder.svg"];
+  const safeActive = Math.min(active, list.length - 1);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="relative aspect-square rounded-2xl bg-surface border border-subtle overflow-hidden">
+        {list.map((src, i) => (
+          <img
+            key={src + i}
+            src={src}
+            alt={`${name} - imagen ${i + 1}`}
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover transition-opacity duration-500",
+              i === safeActive ? "opacity-100" : "opacity-0"
+            )}
+          />
+        ))}
+      </div>
+      {list.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-thin">
+          {list.map((src, i) => (
+            <button
+              key={src + i}
+              type="button"
+              onClick={() => setActive(i)}
+              aria-label={`Ver imagen ${i + 1}`}
+              className={cn(
+                "shrink-0 snap-start h-20 w-20 md:h-24 md:w-24 rounded-lg overflow-hidden border-2 bg-surface-elevated transition-all",
+                i === safeActive ? "border-[#5a2d8c]" : "border-transparent hover:border-subtle"
+              )}
+            >
+              <img src={src} alt="" className="h-full w-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default ProductDetail;
+
