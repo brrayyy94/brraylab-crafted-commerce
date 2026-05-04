@@ -423,22 +423,29 @@ const ProductsSection = () => {
     mutationFn: async () => {
       if (!form.name.trim()) throw new Error("El nombre es obligatorio");
       if (!form.slug.trim()) throw new Error("El slug es obligatorio");
+      const stockRaw = (form.stock ?? "").toString().trim();
+      if (stockRaw === "") throw new Error("El stock es requerido (mínimo 0)");
+      const stockNumber = Number(stockRaw);
+      if (!Number.isFinite(stockNumber) || stockNumber < 0 || !Number.isInteger(stockNumber)) {
+        throw new Error("El stock debe ser un número entero mayor o igual a 0");
+      }
+      const priceNumber = Number(form.price);
+      if (!Number.isFinite(priceNumber) || priceNumber <= 0) throw new Error("El precio debe ser mayor a cero");
+
       const payload = {
         name: form.name.trim(),
         slug: form.slug.trim(),
         short_desc: form.short_desc.trim() || null,
         description: form.description.trim() || null,
-        price: Number(form.price),
+        price: priceNumber,
         compare_price: form.compare_price ? Number(form.compare_price) : null,
-        stock: Number(form.stock || 0),
+        stock: stockNumber,
         category_id: form.category_id === "none" ? null : form.category_id,
         badge: form.badge === "none" ? null : form.badge,
         featured: form.featured,
         active: form.active,
         images: form.images as Json,
       };
-
-      if (Number.isNaN(payload.price) || payload.price <= 0) throw new Error("El precio debe ser mayor a cero");
       if (form.id) {
         const { error } = await supabase.from("products").update(payload).eq("id", form.id);
         if (error) throw error;
