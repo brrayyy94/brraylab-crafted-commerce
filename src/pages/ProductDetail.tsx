@@ -34,6 +34,7 @@ const ProductDetail = () => {
   };
 
   const waMessage = encodeURIComponent(`Hola BrrayLab, me interesa el producto: ${product.name}`);
+  const waUrl = `https://wa.me/573164618006?text=${waMessage}`;
 
   return (
     <>
