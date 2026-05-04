@@ -713,7 +713,7 @@ const ProductsSection = () => {
                   </div>
                 )}
               </div>
-              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="h-12 bg-primary hover:bg-primary/90">
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending || (form.stock ?? "").toString().trim() === ""} className="h-12 bg-primary hover:bg-primary/90">
                 {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                 Guardar producto
               </Button>
