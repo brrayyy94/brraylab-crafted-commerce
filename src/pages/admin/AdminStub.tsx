@@ -650,7 +650,10 @@ const ProductsSection = () => {
                   <Input type="number" value={form.compare_price} onChange={(event) => updateForm("compare_price", event.target.value)} className="bg-surface-elevated border-subtle" />
                 </FormField>
                 <FormField label="Stock">
-                  <Input type="number" value={form.stock} onChange={(event) => updateForm("stock", event.target.value)} className="bg-surface-elevated border-subtle" />
+                  <Input type="number" min={0} step={1} required value={form.stock} onChange={(event) => updateForm("stock", event.target.value)} className="bg-surface-elevated border-subtle" />
+                  {(form.stock ?? "").toString().trim() === "" && (
+                    <p className="text-xs text-destructive">El stock es requerido (mínimo 0)</p>
+                  )}
                 </FormField>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
