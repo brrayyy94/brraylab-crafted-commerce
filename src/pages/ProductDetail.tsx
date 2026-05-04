@@ -109,7 +109,7 @@ const ProductDetail = () => {
                 Agregar al carrito
               </button>
               <a
-                href={`https://wa.me/573000000000?text=${waMessage}`}
+                href={waUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="h-13 inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl border border-subtle hover:border-primary-glow hover:bg-primary/10 font-medium transition-all"
