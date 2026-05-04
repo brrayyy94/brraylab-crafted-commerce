@@ -1,5 +1,5 @@
 import { Link, useParams, Navigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronRight, Lock, Truck, ShieldCheck, MessageCircle, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { formatPrice } from "@/data/products";
