@@ -1,8 +1,11 @@
 import { MessageCircle } from "lucide-react";
 
+const WHATSAPP_URL =
+  "https://wa.me/573164618006?text=Hola%20BrrayLab%2C%20quiero%20m%C3%A1s%20informaci%C3%B3n";
+
 export const WhatsAppFab = () => (
   <a
-    href="https://wa.me/573000000000?text=Hola%20BrrayLab,%20me%20interesa%20saber%20m%C3%A1s%20de%20sus%20productos"
+    href={WHATSAPP_URL}
     target="_blank"
     rel="noreferrer"
     aria-label="Escríbenos por WhatsApp"

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useProducts, useCategories } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/brraylab/ProductCard";
+import { ProductGridSkeleton } from "@/components/brraylab/Skeletons";
 import { cn } from "@/lib/utils";
 
 type Sort = "destacado" | "nuevo" | "menor" | "mayor";
@@ -144,11 +145,7 @@ const Shop = () => {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="aspect-square rounded-xl bg-surface border border-subtle animate-pulse" />
-              ))}
-            </div>
+            <ProductGridSkeleton count={8} />
           ) : filtered.length === 0 ? (
             <div className="py-20 text-center text-muted-foreground">
               <p>No encontramos productos con ese filtro.</p>

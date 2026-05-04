@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { formatPrice } from "@/data/products";
 import { useProduct, useProducts } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/brraylab/ProductCard";
+import { ProductDetailSkeleton } from "@/components/brraylab/Skeletons";
 import { useCart } from "@/context/CartContext";
 import { cn } from "@/lib/utils";
 
@@ -20,9 +21,7 @@ const ProductDetail = () => {
   useEffect(() => { setActiveImage(0); }, [product?.id]);
 
   if (isLoading) {
-    return (
-      <section className="container py-24 text-center text-muted-foreground">Cargando…</section>
-    );
+    return <ProductDetailSkeleton />;
   }
   if (!product) return <Navigate to="/tienda" replace />;
 
@@ -34,6 +33,7 @@ const ProductDetail = () => {
   };
 
   const waMessage = encodeURIComponent(`Hola BrrayLab, me interesa el producto: ${product.name}`);
+  const waUrl = `https://wa.me/573164618006?text=${waMessage}`;
 
   return (
     <>
@@ -108,7 +108,7 @@ const ProductDetail = () => {
                 Agregar al carrito
               </button>
               <a
-                href={`https://wa.me/573000000000?text=${waMessage}`}
+                href={waUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="h-13 inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl border border-subtle hover:border-primary-glow hover:bg-primary/10 font-medium transition-all"
