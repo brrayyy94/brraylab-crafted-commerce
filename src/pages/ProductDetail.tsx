@@ -17,6 +17,8 @@ const ProductDetail = () => {
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
 
+  useEffect(() => { setActiveImage(0); }, [product?.id]);
+
   if (isLoading) {
     return (
       <section className="container py-24 text-center text-muted-foreground">Cargando…</section>
