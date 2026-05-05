@@ -55,7 +55,7 @@ export const Footer = () => (
         <ul className="space-y-2 text-sm text-muted-foreground">
           {categories.map((c) => (
             <li key={c.slug}>
-              <Link to={`/tienda?cat=${c.slug}`} className="hover:text-primary-glow transition-colors">
+              <Link to={`/tienda?categoria=${c.slug}`} className="hover:text-primary-glow transition-colors">
                 {c.name}
               </Link>
             </li>
