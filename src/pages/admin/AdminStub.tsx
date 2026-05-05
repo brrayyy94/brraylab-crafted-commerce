@@ -6,6 +6,8 @@ import {
   Boxes,
   Check,
   Loader2,
+  Mail,
+  MailOpen,
   MessageSquare,
   Package,
   Pencil,
@@ -84,7 +86,7 @@ type ReviewRow = Tables<"reviews"> & {
   profile?: Pick<ProfileRow, "name" | "email"> | null;
 };
 
-type SectionKey = "dashboard" | "productos" | "pedidos" | "clientes" | "resenas";
+type SectionKey = "dashboard" | "productos" | "pedidos" | "clientes" | "resenas" | "mensajes";
 
 type ProductForm = {
   id?: string;
@@ -108,6 +110,7 @@ const navItems: Array<{ key: SectionKey; to: string; label: string; icon: Compon
   { key: "pedidos", to: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { key: "clientes", to: "/admin/clientes", label: "Clientes", icon: Users },
   { key: "resenas", to: "/admin/resenas", label: "Reseñas", icon: MessageSquare },
+  { key: "mensajes", to: "/admin/mensajes", label: "Mensajes", icon: Mail },
 ];
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -197,6 +200,7 @@ const AdminStub = () => {
           {section === "pedidos" && <OrdersSection />}
           {section === "clientes" && <CustomersSection />}
           {section === "resenas" && <ReviewsSection />}
+          {section === "mensajes" && <MessagesSection />}
           {(section === "dashboard" || !navItems.some((item) => item.key === section)) && <DashboardSection />}
         </div>
       </main>
