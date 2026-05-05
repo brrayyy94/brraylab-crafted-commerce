@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useProducts, useCategories } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/brraylab/ProductCard";
@@ -11,9 +11,8 @@ type Sort = "destacado" | "nuevo" | "menor" | "mayor";
 const Shop = () => {
   const { data: products = [], isLoading } = useProducts();
   const { data: categories = [] } = useCategories();
-  const [params, setParams] = useSearchParams();
-  const initialCat = params.get("cat") ?? "all";
-  const [cat, setCat] = useState<string>(initialCat);
+  const [searchParams] = useSearchParams();
+  const categoriaParam = searchParams.get("categoria") || "";
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("destacado");
   const [min, setMin] = useState<string>("");
@@ -22,7 +21,7 @@ const Shop = () => {
 
   const filtered = useMemo(() => {
     let list = [...products];
-    if (cat !== "all") list = list.filter((p) => p.categorySlug === cat);
+    if (categoriaParam) list = list.filter((p) => p.categorySlug === categoriaParam);
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter((p) => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
@@ -38,18 +37,13 @@ const Shop = () => {
       default: list.sort((a, b) => (b.badge === "Más vendido" ? 1 : 0) - (a.badge === "Más vendido" ? 1 : 0));
     }
     return list;
-  }, [products, cat, query, sort, min, max]);
+  }, [products, categoriaParam, query, sort, min, max]);
 
-  const updateCat = (slug: string) => {
-    setCat(slug);
-    if (slug === "all") {
-      params.delete("cat");
-    } else {
-      params.set("cat", slug);
-    }
-    setParams(params, { replace: true });
-    setFiltersOpen(false);
-  };
+  const pillClass = (active: boolean) =>
+    cn(
+      "block w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
+      active ? "bg-primary/15 text-primary-glow" : "hover:bg-surface-elevated text-foreground/80"
+    );
 
   const Filters = (
     <div className="space-y-7">
@@ -57,27 +51,19 @@ const Shop = () => {
         <h4 className="font-display font-bold text-sm uppercase tracking-wider mb-3">Categoría</h4>
         <ul className="space-y-1">
           <li>
-            <button
-              onClick={() => updateCat("all")}
-              className={cn(
-                "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
-                cat === "all" ? "bg-primary/15 text-primary-glow" : "hover:bg-surface-elevated text-foreground/80"
-              )}
-            >
+            <Link to="/tienda" onClick={() => setFiltersOpen(false)} className={pillClass(!categoriaParam)}>
               Todas
-            </button>
+            </Link>
           </li>
           {categories.map((c) => (
             <li key={c.slug}>
-              <button
-                onClick={() => updateCat(c.slug)}
-                className={cn(
-                  "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
-                  cat === c.slug ? "bg-primary/15 text-primary-glow" : "hover:bg-surface-elevated text-foreground/80"
-                )}
+              <Link
+                to={`/tienda?categoria=${c.slug}`}
+                onClick={() => setFiltersOpen(false)}
+                className={pillClass(categoriaParam === c.slug)}
               >
                 {c.name}
-              </button>
+              </Link>
             </li>
           ))}
         </ul>
