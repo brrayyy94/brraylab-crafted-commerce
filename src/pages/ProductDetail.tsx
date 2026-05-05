@@ -84,15 +84,17 @@ const ProductDetail = () => {
               <div className="inline-flex items-center bg-surface-elevated rounded-lg border border-subtle">
                 <button
                   onClick={() => setQty((q) => Math.max(1, q - 1))}
-                  className="h-10 w-10 inline-flex items-center justify-center hover:text-primary-glow transition-colors"
+                  disabled={product.stock <= 0}
+                  className="h-10 w-10 inline-flex items-center justify-center hover:text-primary-glow transition-colors disabled:opacity-40"
                   aria-label="Disminuir"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
                 <span className="w-10 text-center text-sm font-medium">{qty}</span>
                 <button
-                  onClick={() => setQty((q) => q + 1)}
-                  className="h-10 w-10 inline-flex items-center justify-center hover:text-primary-glow transition-colors"
+                  onClick={() => setQty((q) => Math.min(product.stock, q + 1))}
+                  disabled={product.stock <= 0 || qty >= product.stock}
+                  className="h-10 w-10 inline-flex items-center justify-center hover:text-primary-glow transition-colors disabled:opacity-40"
                   aria-label="Aumentar"
                 >
                   <Plus className="h-4 w-4" />
@@ -103,9 +105,10 @@ const ProductDetail = () => {
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <button
                 onClick={handleAdd}
-                className="flex-1 h-13 inline-flex items-center justify-center px-7 py-4 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all duration-300 active:scale-[0.97] shadow-purple"
+                disabled={product.stock <= 0}
+                className="flex-1 h-13 inline-flex items-center justify-center px-7 py-4 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all duration-300 active:scale-[0.97] shadow-purple disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary"
               >
-                Agregar al carrito
+                {product.stock <= 0 ? "Agotado" : "Agregar al carrito"}
               </button>
               <a
                 href={waUrl}
@@ -166,7 +169,7 @@ const ProductDetail = () => {
         <section className="container py-16 md:py-24">
           <h2 className="font-display font-extrabold text-2xl md:text-4xl mb-8">Te puede interesar</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
-            {related.map((p) => <ProductCard key={p.slug} product={p} />)}
+            {related.map((p) => <ProductCard key={p.slug} product={p} eager />)}
           </div>
         </section>
       )}
@@ -196,6 +199,10 @@ const ProductGallery = ({
             key={src + i}
             src={src}
             alt={`${name} - imagen ${i + 1}`}
+            width={1000}
+            height={1000}
+            loading={i === 0 ? "eager" : "lazy"}
+            decoding="async"
             className={cn(
               "absolute inset-0 h-full w-full object-cover transition-opacity duration-500",
               i === safeActive ? "opacity-100" : "opacity-0"
