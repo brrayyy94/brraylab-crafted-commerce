@@ -6,6 +6,8 @@ import {
   Boxes,
   Check,
   Loader2,
+  Mail,
+  MailOpen,
   MessageSquare,
   Package,
   Pencil,
@@ -84,7 +86,7 @@ type ReviewRow = Tables<"reviews"> & {
   profile?: Pick<ProfileRow, "name" | "email"> | null;
 };
 
-type SectionKey = "dashboard" | "productos" | "pedidos" | "clientes" | "resenas";
+type SectionKey = "dashboard" | "productos" | "pedidos" | "clientes" | "resenas" | "mensajes";
 
 type ProductForm = {
   id?: string;
@@ -108,6 +110,7 @@ const navItems: Array<{ key: SectionKey; to: string; label: string; icon: Compon
   { key: "pedidos", to: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { key: "clientes", to: "/admin/clientes", label: "Clientes", icon: Users },
   { key: "resenas", to: "/admin/resenas", label: "Reseñas", icon: MessageSquare },
+  { key: "mensajes", to: "/admin/mensajes", label: "Mensajes", icon: Mail },
 ];
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -197,6 +200,7 @@ const AdminStub = () => {
           {section === "pedidos" && <OrdersSection />}
           {section === "clientes" && <CustomersSection />}
           {section === "resenas" && <ReviewsSection />}
+          {section === "mensajes" && <MessagesSection />}
           {(section === "dashboard" || !navItems.some((item) => item.key === section)) && <DashboardSection />}
         </div>
       </main>
@@ -204,40 +208,58 @@ const AdminStub = () => {
   );
 };
 
-const AdminSidebar = () => (
-  <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] flex-col border-r border-subtle bg-surface lg:flex">
-    <div className="border-b border-subtle p-6">
-      <Link to="/" className="flex items-center gap-3" aria-label="BrrayLab inicio">
-        <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-primary shadow-purple-soft">
-          <span className="font-display text-lg font-black text-primary-foreground">B</span>
-        </span>
-        <span className="font-display text-xl font-black text-foreground">
-          Brray<span className="text-primary-glow">Lab</span>
-        </span>
-      </Link>
-      <p className="mt-2 text-xs uppercase tracking-widest text-muted-foreground">Admin</p>
-    </div>
-    <nav className="flex-1 space-y-1 p-4">
-      {navItems.map((item) => (
-        <NavLink
-          key={item.to}
-          to={item.to}
-          end={item.to === "/admin"}
-          className={({ isActive }) =>
-            cn(
-              "flex items-center gap-3 rounded-md px-4 py-3 text-sm font-medium transition-colors",
-              isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-            )
-          }
-        >
-          <item.icon className="h-4 w-4" />
-          {item.label}
-        </NavLink>
-      ))}
-    </nav>
-    <div className="border-t border-subtle p-4 text-xs text-muted-foreground">Lovable Cloud conectado</div>
-  </aside>
-);
+const AdminSidebar = () => {
+  const { data: unreadCount = 0 } = useQuery({
+    queryKey: ["admin-messages-unread"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("contact_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("read", false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    refetchInterval: 60000,
+  });
+
+  return (
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] flex-col border-r border-subtle bg-surface lg:flex">
+      <div className="border-b border-subtle p-6">
+        <Link to="/" className="flex items-center gap-3" aria-label="BrrayLab inicio">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-primary shadow-purple-soft">
+            <span className="font-display text-lg font-black text-primary-foreground">B</span>
+          </span>
+          <span className="font-display text-xl font-black text-foreground">
+            Brray<span className="text-primary-glow">Lab</span>
+          </span>
+        </Link>
+        <p className="mt-2 text-xs uppercase tracking-widest text-muted-foreground">Admin</p>
+      </div>
+      <nav className="flex-1 space-y-1 p-4">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.to === "/admin"}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-md px-4 py-3 text-sm font-medium transition-colors",
+                isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )
+            }
+          >
+            <item.icon className="h-4 w-4" />
+            <span className="flex-1">{item.label}</span>
+            {item.key === "mensajes" && unreadCount > 0 && (
+              <Badge className="bg-primary-glow text-accent-foreground">{unreadCount}</Badge>
+            )}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="border-t border-subtle p-4 text-xs text-muted-foreground">Lovable Cloud conectado</div>
+    </aside>
+  );
+};
 
 const PageHeader = ({ eyebrow, title, action }: { eyebrow: string; title: string; action?: ReactNode }) => (
   <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -1085,6 +1107,117 @@ const ReviewsSection = () => {
           </Table>
         </DataPanel>
       )}
+    </section>
+  );
+};
+
+type ContactMessage = Tables<"contact_messages">;
+
+const formatDateTime = (iso: string) =>
+  new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
+
+const MessagesSection = () => {
+  const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<ContactMessage | null>(null);
+
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ["admin-messages"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contact_messages")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as ContactMessage[];
+    },
+  });
+
+  const markRead = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("contact_messages").update({ read: true }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-messages"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-messages-unread"] });
+    },
+  });
+
+  const openMessage = (m: ContactMessage) => {
+    setSelected(m);
+    if (!m.read) markRead.mutate(m.id);
+  };
+
+  return (
+    <section>
+      <PageHeader eyebrow="Mensajes" title="Bandeja de contacto" />
+      {isLoading ? <LoadingPanel /> : (
+        <DataPanel title={`Mensajes (${messages.length})`}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Estado</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Mensaje</TableHead>
+                <TableHead>Fecha</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {messages.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
+                    Aún no hay mensajes recibidos.
+                  </TableCell>
+                </TableRow>
+              )}
+              {messages.map((m) => (
+                <TableRow
+                  key={m.id}
+                  onClick={() => openMessage(m)}
+                  className={cn("cursor-pointer", !m.read && "bg-primary/5")}
+                >
+                  <TableCell>
+                    {m.read ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        <MailOpen className="h-3.5 w-3.5" /> Leído
+                      </span>
+                    ) : (
+                      <Badge className="bg-primary-glow text-accent-foreground">Nuevo</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="font-medium">{m.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{m.email}</TableCell>
+                  <TableCell className="max-w-md truncate text-muted-foreground">{m.message}</TableCell>
+                  <TableCell className="text-muted-foreground">{formatDateTime(m.created_at)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DataPanel>
+      )}
+
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{selected?.name}</DialogTitle>
+            <DialogDescription>
+              {selected?.email}{selected?.phone ? ` · ${selected.phone}` : ""} · {selected ? formatDateTime(selected.created_at) : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border border-subtle bg-surface-elevated p-4 text-sm whitespace-pre-wrap">
+            {selected?.message}
+          </div>
+          <DialogFooter>
+            <a
+              href={selected ? `mailto:${selected.email}` : undefined}
+              className="inline-flex h-10 items-center px-4 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary-glow transition-colors"
+            >
+              Responder por email
+            </a>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 };

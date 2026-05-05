@@ -41,7 +41,7 @@ const Cart = () => {
               className="flex gap-4 p-4 rounded-xl bg-surface border border-subtle"
             >
               <Link to={`/producto/${it.product.slug}`} className="h-24 w-24 md:h-28 md:w-28 rounded-lg overflow-hidden bg-surface-elevated shrink-0">
-                <img src={it.product.image} alt={it.product.name} className="h-full w-full object-cover" />
+                <img src={it.product.images?.[0] || it.product.image} alt={it.product.name} className="h-full w-full object-cover" />
               </Link>
               <div className="flex-1 min-w-0 flex flex-col">
                 <Link to={`/producto/${it.product.slug}`} className="font-medium hover:text-primary-glow transition-colors line-clamp-2">

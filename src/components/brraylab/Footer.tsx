@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Instagram, MessageCircle } from "lucide-react";
+import { Instagram, MessageCircle, Music2 } from "lucide-react";
 import { Logo } from "./Logo";
 
 const categories = [
@@ -20,7 +20,7 @@ export const Footer = () => (
         </p>
         <div className="flex gap-3 pt-2">
           <a
-            href="https://instagram.com"
+            href="https://instagram.com/brraylab"
             target="_blank"
             rel="noreferrer"
             className="h-9 w-9 rounded-full bg-surface flex items-center justify-center hover:bg-primary transition-colors"
@@ -29,7 +29,16 @@ export const Footer = () => (
             <Instagram className="h-4 w-4" />
           </a>
           <a
-            href="https://wa.me/573000000000"
+            href="https://tiktok.com/@brraylab"
+            target="_blank"
+            rel="noreferrer"
+            className="h-9 w-9 rounded-full bg-surface flex items-center justify-center hover:bg-primary transition-colors"
+            aria-label="TikTok"
+          >
+            <Music2 className="h-4 w-4" />
+          </a>
+          <a
+            href="https://wa.me/573164618006"
             target="_blank"
             rel="noreferrer"
             className="h-9 w-9 rounded-full bg-surface flex items-center justify-center hover:bg-primary transition-colors"
@@ -69,7 +78,7 @@ export const Footer = () => (
           <li>Cali, Colombia</li>
           <li>Lun – Sáb · 9am – 7pm</li>
           <li>
-            <a href="https://wa.me/573000000000" className="hover:text-primary-glow transition-colors">
+            <a href="https://wa.me/573164618006" className="hover:text-primary-glow transition-colors">
               WhatsApp directo
             </a>
           </li>
