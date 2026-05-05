@@ -38,7 +38,7 @@ const Shop = () => {
       default: list.sort((a, b) => (b.badge === "Más vendido" ? 1 : 0) - (a.badge === "Más vendido" ? 1 : 0));
     }
     return list;
-  }, [cat, query, sort, min, max]);
+  }, [products, cat, query, sort, min, max]);
 
   const updateCat = (slug: string) => {
     setCat(slug);
