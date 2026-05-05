@@ -78,7 +78,7 @@ const Home = () => {
           {categories.slice(0, 4).map((cat) => (
             <Link
               key={cat.slug}
-              to={`/tienda?cat=${cat.slug}`}
+              to={`/tienda?categoria=${cat.slug}`}
               className="group relative aspect-square rounded-xl bg-surface border border-subtle overflow-hidden product-card"
             >
               <img
