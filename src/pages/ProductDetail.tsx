@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { formatPrice } from "@/data/products";
 import { useProduct, useProducts } from "@/hooks/useProducts";
 import { ProductCard } from "@/components/brraylab/ProductCard";
+import { ProductReviews } from "@/components/brraylab/ProductReviews";
 import { ProductDetailSkeleton } from "@/components/brraylab/Skeletons";
 import { useCart } from "@/context/CartContext";
 import { cn } from "@/lib/utils";
@@ -173,6 +174,9 @@ const ProductDetail = () => {
           </div>
         </section>
       )}
+
+      {/* Reseñas */}
+      <ProductReviews productId={product.id} />
     </>
   );
 };
