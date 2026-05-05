@@ -1,18 +1,32 @@
 import { useState } from "react";
 import { MessageCircle, MapPin, Clock } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const Contact = () => {
-  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", message: "" });
+  const [sending, setSending] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-      toast.error("Completa todos los campos");
+      toast.error("Completa los campos requeridos");
+      return;
+    }
+    setSending(true);
+    const { error } = await supabase.from("contact_messages").insert({
+      name: form.name.trim(),
+      email: form.email.trim(),
+      phone: form.phone.trim() || null,
+      message: form.message.trim(),
+    });
+    setSending(false);
+    if (error) {
+      toast.error("No se pudo enviar el mensaje. Intenta de nuevo.");
       return;
     }
     toast.success("Mensaje enviado", { description: "Te responderemos pronto." });
-    setForm({ name: "", email: "", message: "" });
+    setForm({ name: "", email: "", phone: "", message: "" });
   };
 
   return (
@@ -47,6 +61,16 @@ const Contact = () => {
             />
           </div>
           <div>
+            <label className="text-sm font-medium block mb-2">Teléfono <span className="text-muted-foreground">(opcional)</span></label>
+            <input
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              className="w-full h-11 px-3 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30 transition-all"
+              placeholder="+57 ..."
+            />
+          </div>
+          <div>
             <label className="text-sm font-medium block mb-2">Mensaje</label>
             <textarea
               value={form.message}
@@ -58,9 +82,10 @@ const Contact = () => {
           </div>
           <button
             type="submit"
-            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all active:scale-[0.97] shadow-purple"
+            disabled={sending}
+            className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all active:scale-[0.97] shadow-purple disabled:opacity-50"
           >
-            Enviar mensaje
+            {sending ? "Enviando…" : "Enviar mensaje"}
           </button>
         </form>
 
