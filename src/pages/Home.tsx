@@ -108,8 +108,8 @@ const Home = () => {
           <h2 className="font-display font-extrabold text-3xl md:text-5xl">Los favoritos de la tribu</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-          {featured.map((p) => (
-            <ProductCard key={p.slug} product={p} />
+          {featured.map((p, i) => (
+            <ProductCard key={p.slug} product={p} eager={i < 4} />
           ))}
         </div>
         <div className="mt-10 text-center">
