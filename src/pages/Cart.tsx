@@ -5,6 +5,11 @@ import { formatPrice } from "@/data/products";
 
 const Cart = () => {
   const { items, subtotal, update, remove } = useCart();
+  const savings = items.reduce((acc, it) => {
+    const old = it.product.oldPrice;
+    if (old && old > it.product.price) return acc + (old - it.product.price) * it.quantity;
+    return acc;
+  }, 0);
 
   if (items.length === 0) {
     return (
@@ -80,6 +85,9 @@ const Cart = () => {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatPrice(subtotal)}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Envío</span><span className="text-muted-foreground">A calcular</span></div>
+            {savings > 0 && (
+              <div className="flex justify-between text-success"><span>Ahorras</span><span className="font-medium">{formatPrice(savings)}</span></div>
+            )}
           </div>
           <div className="border-t border-subtle pt-4 flex justify-between items-baseline">
             <span className="text-sm">Total</span>
@@ -91,6 +99,12 @@ const Cart = () => {
             className="w-full h-12 inline-flex items-center justify-center rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all active:scale-[0.97] shadow-purple"
           >
             Proceder al pago
+          </Link>
+          <Link
+            to="/tienda"
+            className="w-full h-11 inline-flex items-center justify-center rounded-xl border border-subtle hover:border-primary-glow hover:bg-primary/10 text-sm font-medium transition-all"
+          >
+            Seguir comprando
           </Link>
 
           <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2">
