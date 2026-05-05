@@ -66,7 +66,7 @@ const Contact = () => {
 
         <aside className="space-y-4">
           <a
-            href="https://wa.me/573000000000?text=Hola%20BrrayLab"
+            href="https://wa.me/573164618006?text=Hola%20BrrayLab"
             target="_blank"
             rel="noreferrer"
             className="block rounded-2xl bg-surface border border-subtle p-6 hover:border-primary/40 transition-colors group"
