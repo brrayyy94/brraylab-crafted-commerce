@@ -26,7 +26,16 @@ import OrdersStub from "./pages/account/OrdersStub";
 import AddressesStub from "./pages/account/AddressesStub";
 import AdminStub from "./pages/admin/AdminStub";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 min
+      gcTime: 10 * 60 * 1000, // 10 min
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
