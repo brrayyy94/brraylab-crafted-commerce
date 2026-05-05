@@ -43,7 +43,7 @@ const ProductDetail = () => {
           <ChevronRight className="h-3 w-3" />
           <Link to="/tienda" className="hover:text-primary-glow">Tienda</Link>
           <ChevronRight className="h-3 w-3" />
-          <Link to={`/tienda?cat=${product.categorySlug}`} className="hover:text-primary-glow">{product.category}</Link>
+          <Link to={`/tienda?categoria=${product.categorySlug}`} className="hover:text-primary-glow">{product.category}</Link>
           <ChevronRight className="h-3 w-3" />
           <span className="text-foreground/80 truncate">{product.name}</span>
         </nav>
