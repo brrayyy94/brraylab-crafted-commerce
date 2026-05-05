@@ -61,7 +61,7 @@ export const MiniCart = () => {
                     onClick={closeMini}
                     className="h-20 w-20 rounded-lg overflow-hidden bg-surface-elevated shrink-0"
                   >
-                    <img src={it.product.image} alt={it.product.name} className="h-full w-full object-cover" />
+                    <img src={it.product.images?.[0] || it.product.image} alt={it.product.name} className="h-full w-full object-cover" />
                   </Link>
                   <div className="flex-1 min-w-0">
                     <Link
