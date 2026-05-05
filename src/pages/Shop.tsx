@@ -38,7 +38,7 @@ const Shop = () => {
       default: list.sort((a, b) => (b.badge === "Más vendido" ? 1 : 0) - (a.badge === "Más vendido" ? 1 : 0));
     }
     return list;
-  }, [cat, query, sort, min, max]);
+  }, [products, cat, query, sort, min, max]);
 
   const updateCat = (slug: string) => {
     setCat(slug);
@@ -148,12 +148,12 @@ const Shop = () => {
             <ProductGridSkeleton count={8} />
           ) : filtered.length === 0 ? (
             <div className="py-20 text-center text-muted-foreground">
-              <p>No encontramos productos con ese filtro.</p>
+              <p>{query.trim() ? "No encontramos productos con ese nombre." : "No encontramos productos con ese filtro."}</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5">
-              {filtered.map((p) => (
-                <ProductCard key={p.slug} product={p} />
+              {filtered.map((p, i) => (
+                <ProductCard key={p.slug} product={p} eager={i < 4} />
               ))}
             </div>
           )}
