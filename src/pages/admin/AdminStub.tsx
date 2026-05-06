@@ -209,18 +209,25 @@ const AdminStub = () => {
 };
 
 const AdminSidebar = () => {
-  const { data: unreadCount = 0 } = useQuery({
-    queryKey: ["admin-messages-unread"],
+  const { data: counts = { pedidos: 0, resenas: 0, mensajes: 0 } } = useQuery({
+    queryKey: ["admin-sidebar-counts"],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("contact_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("read", false);
-      if (error) throw error;
-      return count ?? 0;
+      const [pedidos, resenas, mensajes] = await Promise.all([
+        supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("reviews").select("id", { count: "exact", head: true }).eq("approved", false),
+        supabase.from("contact_messages").select("id", { count: "exact", head: true }).eq("read", false),
+      ]);
+      return {
+        pedidos: pedidos.count ?? 0,
+        resenas: resenas.count ?? 0,
+        mensajes: mensajes.count ?? 0,
+      };
     },
-    refetchInterval: 60000,
+    refetchInterval: 30000,
   });
+
+  const countFor = (key: SectionKey) =>
+    key === "pedidos" ? counts.pedidos : key === "resenas" ? counts.resenas : key === "mensajes" ? counts.mensajes : 0;
 
   return (
     <aside className="fixed inset-y-0 left-0 z-40 hidden w-[260px] flex-col border-r border-subtle bg-surface lg:flex">
@@ -236,25 +243,32 @@ const AdminSidebar = () => {
         <p className="mt-2 text-xs uppercase tracking-widest text-muted-foreground">Admin</p>
       </div>
       <nav className="flex-1 space-y-1 p-4">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            end={item.to === "/admin"}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 rounded-md px-4 py-3 text-sm font-medium transition-colors",
-                isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-              )
-            }
-          >
-            <item.icon className="h-4 w-4" />
-            <span className="flex-1">{item.label}</span>
-            {item.key === "mensajes" && unreadCount > 0 && (
-              <Badge className="bg-primary-glow text-accent-foreground">{unreadCount}</Badge>
-            )}
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          const count = countFor(item.key);
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === "/admin"}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 rounded-md px-4 py-3 text-sm font-medium transition-colors",
+                  isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )
+              }
+            >
+              <span className="relative inline-flex">
+                <item.icon className="h-4 w-4" />
+                {count > 0 && (
+                  <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-[#ef4444] text-white text-[10px] font-bold leading-none">
+                    {count > 99 ? "99+" : count}
+                  </span>
+                )}
+              </span>
+              <span className="flex-1">{item.label}</span>
+            </NavLink>
+          );
+        })}
       </nav>
       <div className="border-t border-subtle p-4 text-xs text-muted-foreground">Lovable Cloud conectado</div>
     </aside>
