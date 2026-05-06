@@ -339,16 +339,26 @@ const Checkout = () => {
                   <p className="text-muted-foreground">Pago contra entrega · Cobro al recibir el pedido.</p>
                 </div>
                 <ul className="divide-y divide-subtle">
-                  {items.map((it) => (
-                    <li key={it.product.slug} className="flex items-center gap-3 py-3 text-sm">
-                      <img src={it.product.image} alt={it.product.name} className="h-12 w-12 rounded-md object-cover bg-surface-elevated" />
-                      <div className="flex-1 min-w-0">
-                        <p className="truncate">{it.product.name}</p>
-                        <p className="text-xs text-muted-foreground">Cant: {it.quantity}</p>
-                      </div>
-                      <span className="font-medium">{formatPrice(it.product.price * it.quantity)}</span>
-                    </li>
-                  ))}
+                  {items.map((it) => {
+                    const img = it.product.images?.[0] || it.product.image;
+                    return (
+                      <li key={it.product.slug} className="flex items-center gap-3 py-3 text-sm">
+                        <img
+                          src={img}
+                          alt={it.product.name}
+                          width={64}
+                          height={64}
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
+                          className="h-16 w-16 rounded-lg object-cover bg-surface-elevated shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate">{it.product.name}</p>
+                          <p className="text-xs text-muted-foreground">Cant: {it.quantity}</p>
+                        </div>
+                        <span className="font-medium">{formatPrice(it.product.price * it.quantity)}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </>
             )}
