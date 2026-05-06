@@ -69,9 +69,7 @@ export const ProductReviews = ({ productId }: { productId: string }) => {
   });
 
   return (
-    <section className="container py-16 md:py-20 border-t border-subtle">
-      <h2 className="font-display font-extrabold text-2xl md:text-4xl mb-8">Reseñas</h2>
-
+    <div className="space-y-10">
       {/* Lista */}
       <div className="space-y-4 max-w-3xl">
         {isLoading ? (
