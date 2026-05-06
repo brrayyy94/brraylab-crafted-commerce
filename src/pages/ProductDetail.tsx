@@ -156,11 +156,7 @@ const ProductDetail = () => {
                 ))}
               </ul>
             )}
-            {tab === "rev" && (
-              <div className="space-y-4">
-                <p className="text-muted-foreground text-sm">Aún no hay reseñas públicas para este producto.</p>
-              </div>
-            )}
+            {tab === "rev" && <ProductReviews productId={product.id} />}
           </div>
         </div>
       </section>
@@ -174,9 +170,6 @@ const ProductDetail = () => {
           </div>
         </section>
       )}
-
-      {/* Reseñas */}
-      <ProductReviews productId={product.id} />
     </>
   );
 };
