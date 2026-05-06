@@ -154,6 +154,6 @@ export const ProductReviews = ({ productId }: { productId: string }) => {
           </form>
         )}
       </div>
-    </section>
+    </div>
   );
 };
