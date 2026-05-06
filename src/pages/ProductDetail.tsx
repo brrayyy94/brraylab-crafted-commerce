@@ -51,7 +51,7 @@ const ProductDetail = () => {
 
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Galería */}
-          <ProductGallery images={product.images} name={product.name} active={activeImage} setActive={setActiveImage} />
+          <ProductGallery images={product.images ?? []} name={product.name} active={activeImage} setActive={setActiveImage} />
 
           {/* Info */}
           <div className="flex flex-col gap-5">
