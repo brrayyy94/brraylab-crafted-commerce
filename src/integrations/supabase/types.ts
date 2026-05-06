@@ -122,6 +122,45 @@ export type Database = {
         }
         Relationships: []
       }
+      hero_slides: {
+        Row: {
+          active: boolean
+          created_at: string
+          cta_link: string | null
+          cta_text: string | null
+          display_order: number
+          id: string
+          image_url: string | null
+          subtitle: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          cta_link?: string | null
+          cta_text?: string | null
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          subtitle?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          cta_link?: string | null
+          cta_text?: string | null
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          subtitle?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_addresses: {
         Row: {
           address: string
