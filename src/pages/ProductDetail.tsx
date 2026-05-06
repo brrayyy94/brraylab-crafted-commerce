@@ -149,7 +149,7 @@ const ProductDetail = () => {
             {tab === "desc" && <p className="text-foreground/85 leading-relaxed">{product.description}</p>}
             {tab === "feat" && (
               <ul className="grid sm:grid-cols-2 gap-3">
-                {product.features.map((f) => (
+                {(product.features ?? []).map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm">
                     <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary-glow shrink-0" /> {f}
                   </li>
