@@ -5,6 +5,7 @@ import {
   BarChart3,
   Boxes,
   Check,
+  Image as ImageIcon,
   Layers,
   Loader2,
   Mail,
