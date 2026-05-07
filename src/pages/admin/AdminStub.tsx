@@ -206,6 +206,7 @@ const AdminStub = () => {
           {section === "clientes" && <CustomersSection />}
           {section === "resenas" && <ReviewsSection />}
           {section === "mensajes" && <MessagesSection />}
+          {section === "hero" && <HeroSettingsSection />}
           {(section === "dashboard" || !navItems.some((item) => item.key === section)) && <DashboardSection />}
         </div>
       </main>
