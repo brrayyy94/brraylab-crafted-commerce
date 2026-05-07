@@ -5,6 +5,7 @@ import {
   BarChart3,
   Boxes,
   Check,
+  Layers,
   Loader2,
   Mail,
   MailOpen,
@@ -86,7 +87,7 @@ type ReviewRow = Tables<"reviews"> & {
   profile?: Pick<ProfileRow, "name" | "email"> | null;
 };
 
-type SectionKey = "dashboard" | "productos" | "pedidos" | "clientes" | "resenas" | "mensajes";
+type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes";
 
 type ProductForm = {
   id?: string;
@@ -107,6 +108,7 @@ type ProductForm = {
 const navItems: Array<{ key: SectionKey; to: string; label: string; icon: ComponentType<{ className?: string }> }> = [
   { key: "dashboard", to: "/admin", label: "Dashboard", icon: BarChart3 },
   { key: "productos", to: "/admin/productos", label: "Productos", icon: Boxes },
+  { key: "categorias", to: "/admin/categorias", label: "Categorías", icon: Layers },
   { key: "pedidos", to: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { key: "clientes", to: "/admin/clientes", label: "Clientes", icon: Users },
   { key: "resenas", to: "/admin/resenas", label: "Reseñas", icon: MessageSquare },
@@ -197,6 +199,7 @@ const AdminStub = () => {
         </div>
         <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-8 lg:px-10">
           {section === "productos" && <ProductsSection />}
+          {section === "categorias" && <CategoriesSection />}
           {section === "pedidos" && <OrdersSection />}
           {section === "clientes" && <CustomersSection />}
           {section === "resenas" && <ReviewsSection />}
