@@ -868,6 +868,8 @@ const CategoriesSection = () => {
     </section>
   );
 };
+
+const OrdersSection = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-orders"],
     queryFn: async () => {
