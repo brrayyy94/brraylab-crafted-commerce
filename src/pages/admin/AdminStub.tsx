@@ -5,6 +5,7 @@ import {
   BarChart3,
   Boxes,
   Check,
+  Layers,
   Loader2,
   Mail,
   MailOpen,
@@ -86,7 +87,7 @@ type ReviewRow = Tables<"reviews"> & {
   profile?: Pick<ProfileRow, "name" | "email"> | null;
 };
 
-type SectionKey = "dashboard" | "productos" | "pedidos" | "clientes" | "resenas" | "mensajes";
+type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes";
 
 type ProductForm = {
   id?: string;
@@ -107,6 +108,7 @@ type ProductForm = {
 const navItems: Array<{ key: SectionKey; to: string; label: string; icon: ComponentType<{ className?: string }> }> = [
   { key: "dashboard", to: "/admin", label: "Dashboard", icon: BarChart3 },
   { key: "productos", to: "/admin/productos", label: "Productos", icon: Boxes },
+  { key: "categorias", to: "/admin/categorias", label: "Categorías", icon: Layers },
   { key: "pedidos", to: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { key: "clientes", to: "/admin/clientes", label: "Clientes", icon: Users },
   { key: "resenas", to: "/admin/resenas", label: "Reseñas", icon: MessageSquare },
@@ -197,6 +199,7 @@ const AdminStub = () => {
         </div>
         <div className="mx-auto max-w-[1440px] px-4 py-8 md:px-8 lg:px-10">
           {section === "productos" && <ProductsSection />}
+          {section === "categorias" && <CategoriesSection />}
           {section === "pedidos" && <OrdersSection />}
           {section === "clientes" && <CustomersSection />}
           {section === "resenas" && <ReviewsSection />}
@@ -774,6 +777,97 @@ const ToggleRow = ({ label, checked, onChange }: { label: string; checked: boole
     <Switch checked={checked} onCheckedChange={onChange} />
   </div>
 );
+
+const CategoriesSection = () => {
+  const queryClient = useQueryClient();
+  const { data: categories = [], isLoading } = useQuery({
+    queryKey: ["admin-categories-full"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name, slug, image_url, active, order")
+        .order("order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as CategoryRow[];
+    },
+  });
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+  const updateImage = async (category: CategoryRow, file: File) => {
+    setUploadingId(category.id);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `categories/${category.slug}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("product-images")
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      const { error: dbErr } = await supabase
+        .from("categories")
+        .update({ image_url: data.publicUrl })
+        .eq("id", category.id);
+      if (dbErr) throw dbErr;
+      // remove old image if it lived in our bucket
+      if (category.image_url) {
+        const oldPath = imagePathFromPublicUrl(category.image_url);
+        if (oldPath && oldPath !== path) {
+          await supabase.storage.from("product-images").remove([oldPath]);
+        }
+      }
+      toast.success("Imagen actualizada");
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo subir la imagen");
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  return (
+    <section>
+      <PageHeader eyebrow="Categorías" title="Imágenes de categorías" />
+      {isLoading ? (
+        <LoadingPanel />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {categories.map((cat) => (
+            <div key={cat.id} className="rounded-md border border-subtle bg-surface overflow-hidden">
+              <div className="aspect-video bg-surface-elevated overflow-hidden">
+                {cat.image_url ? (
+                  <img src={cat.image_url} alt={cat.name} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">Sin imagen</div>
+                )}
+              </div>
+              <div className="p-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-display font-bold">{cat.name}</p>
+                  <p className="text-xs text-muted-foreground">/{cat.slug}</p>
+                </div>
+                <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90">
+                  {uploadingId === cat.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                  Cambiar
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) updateImage(cat, file);
+                      event.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+};
 
 const OrdersSection = () => {
   const { data: orders = [], isLoading } = useQuery({
