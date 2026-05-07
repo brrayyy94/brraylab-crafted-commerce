@@ -872,6 +872,187 @@ const CategoriesSection = () => {
   );
 };
 
+type HeroBgType = "none" | "image" | "video";
+type HeroSettingsValue = {
+  type: HeroBgType;
+  image_url: string | null;
+  video_url: string | null;
+  overlay_opacity: number;
+};
+
+const HeroSettingsSection = () => {
+  const queryClient = useQueryClient();
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["admin-hero-settings"],
+    queryFn: async (): Promise<HeroSettingsValue> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "hero")
+        .maybeSingle();
+      if (error) throw error;
+      const v = (data?.value ?? {}) as Partial<HeroSettingsValue>;
+      return {
+        type: (v.type as HeroBgType) ?? "none",
+        image_url: v.image_url ?? null,
+        video_url: v.video_url ?? null,
+        overlay_opacity: typeof v.overlay_opacity === "number" ? v.overlay_opacity : 0.5,
+      };
+    },
+  });
+
+  const [draft, setDraft] = useState<HeroSettingsValue | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (settings && !draft) setDraft(settings);
+  }, [settings, draft]);
+
+  const current: HeroSettingsValue = draft ?? settings ?? { type: "none", image_url: null, video_url: null, overlay_opacity: 0.5 };
+
+  const handleUpload = async (file: File, kind: "image" | "video") => {
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || (kind === "video" ? "mp4" : "jpg");
+      const path = `hero/${kind}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("product-images")
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      setDraft({
+        ...current,
+        ...(kind === "image" ? { image_url: data.publicUrl } : { video_url: data.publicUrl }),
+      });
+      toast.success(kind === "video" ? "Video subido" : "Imagen subida");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo subir el archivo");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("site_settings")
+        .update({ value: current as unknown as Json })
+        .eq("key", "hero");
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("Configuración guardada");
+      await queryClient.invalidateQueries({ queryKey: ["admin-hero-settings"] });
+      await queryClient.invalidateQueries({ queryKey: ["site-settings", "hero"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : "Error al guardar");
+    },
+  });
+
+  if (isLoading || !draft) return <LoadingPanel />;
+  const overlayPct = Math.round(current.overlay_opacity * 100);
+
+  return (
+    <section>
+      <PageHeader
+        eyebrow="Configuración"
+        title="Hero del inicio"
+        action={
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar cambios"}
+          </Button>
+        }
+      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-6 rounded-md border border-subtle bg-surface p-6">
+          <div className="space-y-2">
+            <Label>Tipo de fondo</Label>
+            <Select value={current.type} onValueChange={(value) => setDraft({ ...current, type: value as HeroBgType })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ninguno (fondo sólido)</SelectItem>
+                <SelectItem value="image">Imagen</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {current.type === "image" && (
+            <div className="space-y-2">
+              <Label>Imagen de fondo</Label>
+              {current.image_url && (<img src={current.image_url} alt="" className="h-32 w-full rounded-md object-cover" />)}
+              <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                Subir imagen
+                <input type="file" accept="image/*" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f, "image"); e.target.value = ""; }} />
+              </label>
+            </div>
+          )}
+
+          {current.type === "video" && (
+            <>
+              <div className="space-y-2">
+                <Label>Video de fondo</Label>
+                {current.video_url && (<video src={current.video_url} className="h-32 w-full rounded-md object-cover" muted />)}
+                <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  Subir video
+                  <input type="file" accept="video/*" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f, "video"); e.target.value = ""; }} />
+                </label>
+              </div>
+              <div className="space-y-2">
+                <Label>Imagen de fallback (móvil)</Label>
+                {current.image_url && (<img src={current.image_url} alt="" className="h-24 w-full rounded-md object-cover" />)}
+                <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-subtle px-3 text-xs font-medium hover:bg-secondary">
+                  <Upload className="h-3 w-3" />
+                  Subir fallback
+                  <input type="file" accept="image/*" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f, "image"); e.target.value = ""; }} />
+                </label>
+              </div>
+            </>
+          )}
+
+          {current.type !== "none" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Opacidad del overlay</Label>
+                <span className="text-sm text-muted-foreground">{overlayPct}%</span>
+              </div>
+              <input
+                type="range"
+                min={20}
+                max={70}
+                value={overlayPct}
+                onChange={(e) => setDraft({ ...current, overlay_opacity: Number(e.target.value) / 100 })}
+                className="w-full accent-primary"
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-md border border-subtle bg-surface overflow-hidden">
+          <div className="border-b border-subtle px-5 py-3 text-sm font-medium">Vista previa</div>
+          <div className="relative h-[360px] flex items-center justify-center overflow-hidden bg-black">
+            {current.type === "video" && current.video_url ? (
+              <video src={current.video_url} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
+            ) : current.type === "image" && current.image_url ? (
+              <img src={current.image_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : null}
+            {current.type !== "none" && (
+              <div className="absolute inset-0 bg-black" style={{ opacity: current.overlay_opacity }} />
+            )}
+            <div className="relative z-10 text-center text-white px-6">
+              <p className="text-xs uppercase tracking-widest text-primary-glow mb-2">Vista previa</p>
+              <h3 className="font-display text-3xl font-black">Tecnología a tu nivel</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 const OrdersSection = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-orders"],
