@@ -3,25 +3,57 @@ import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Users, Star } from "lucide-
 import heroImg from "@/assets/hero-airpods.jpg";
 import { reviews } from "@/data/products";
 import { useProducts, useCategories } from "@/hooks/useProducts";
+import { useHeroSettings } from "@/hooks/useHeroSettings";
 import { ProductCard } from "@/components/brraylab/ProductCard";
 
 const Home = () => {
   const { data: products = [] } = useProducts();
   const { data: categories = [] } = useCategories();
+  const { data: hero } = useHeroSettings();
   const featured = products.slice(0, 4);
+
+  const heroType = hero?.type ?? "none";
+  const overlayOpacity = hero?.overlay_opacity ?? 0.5;
 
   return (
     <>
       {/* HERO */}
       <section className="relative min-h-[92vh] flex items-center overflow-hidden">
         <div className="absolute inset-0 -z-10">
-          <img
-            src={heroImg}
-            alt=""
-            className="h-full w-full object-cover opacity-90"
-            width={1920}
-            height={1200}
-          />
+          {heroType === "video" && hero?.video_url ? (
+            <video
+              src={hero.video_url}
+              poster={hero.image_url ?? heroImg}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="h-full w-full object-cover"
+            />
+          ) : heroType === "image" && hero?.image_url ? (
+            <img
+              src={hero.image_url}
+              alt=""
+              className="h-full w-full object-cover bg-fixed"
+              style={{ backgroundAttachment: "fixed" }}
+              width={1920}
+              height={1200}
+            />
+          ) : (
+            <img
+              src={heroImg}
+              alt=""
+              className="h-full w-full object-cover opacity-90"
+              width={1920}
+              height={1200}
+            />
+          )}
+          {heroType !== "none" && (
+            <div
+              className="absolute inset-0 bg-black"
+              style={{ opacity: overlayOpacity }}
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/30 to-background" />
           <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/40" />
         </div>
