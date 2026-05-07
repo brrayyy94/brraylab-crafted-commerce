@@ -113,6 +113,7 @@ const navItems: Array<{ key: SectionKey; to: string; label: string; icon: Compon
   { key: "clientes", to: "/admin/clientes", label: "Clientes", icon: Users },
   { key: "resenas", to: "/admin/resenas", label: "Reseñas", icon: MessageSquare },
   { key: "mensajes", to: "/admin/mensajes", label: "Mensajes", icon: Mail },
+  { key: "hero", to: "/admin/hero", label: "Hero", icon: ImageIcon },
 ];
 
 const statusLabels: Record<OrderStatus, string> = {
