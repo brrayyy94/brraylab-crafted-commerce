@@ -936,8 +936,10 @@ const HeroSettingsSection = () => {
     mutationFn: async () => {
       const { error } = await supabase
         .from("site_settings")
-        .update({ value: current as unknown as Json })
-        .eq("key", "hero");
+        .upsert(
+          { key: "hero", value: current as unknown as Json },
+          { onConflict: "key" }
+        );
       if (error) throw error;
     },
     onSuccess: async () => {
