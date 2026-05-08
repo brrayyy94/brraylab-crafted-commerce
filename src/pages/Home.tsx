@@ -18,8 +18,8 @@ const Home = () => {
   return (
     <>
       {/* HERO */}
-      <section className="relative min-h-[92vh] flex items-center overflow-hidden">
-        <div className="absolute inset-0 -z-10">
+      <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-background">
+        <div className="absolute inset-0 z-0">
           {heroType === "video" && hero?.video_url ? (
             <video
               src={hero.video_url}
@@ -97,7 +97,7 @@ const Home = () => {
         </div>
 
         {/* scroll cue */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs text-muted-foreground tracking-widest uppercase animate-fade-in">
+        <div className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2 text-xs text-muted-foreground tracking-widest uppercase animate-fade-in">
           Desliza
         </div>
       </section>
