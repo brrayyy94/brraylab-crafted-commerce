@@ -48,14 +48,21 @@ const Home = () => {
               height={1200}
             />
           )}
-          {heroType !== "none" && (
-            <div
-              className="absolute inset-0 bg-black"
-              style={{ opacity: overlayOpacity }}
-            />
+          {heroType !== "none" ? (
+            <>
+              <div
+                className="absolute inset-0 bg-black"
+                style={{ opacity: overlayOpacity }}
+              />
+              {/* light bottom fade for text legibility, no full background wash */}
+              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent" />
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/30 to-background" />
+              <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/40" />
+            </>
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/30 to-background" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/40" />
         </div>
 
         <div className="container relative z-10 pt-24 pb-16">
