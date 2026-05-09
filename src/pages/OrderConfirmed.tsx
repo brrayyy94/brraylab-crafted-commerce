@@ -42,7 +42,7 @@ const OrderConfirmed = () => {
       if (!number) return;
       const { data: o } = await supabase
         .from("orders")
-        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, notes, created_at, user_id, guest_email")
+        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, amount_paid_online, amount_due_on_delivery, notes, created_at, user_id, guest_email")
         .eq("order_number", number)
         .maybeSingle();
       if (cancelled) return;
