@@ -1519,4 +1519,154 @@ const MessagesSection = () => {
   );
 };
 
+type PaymentSettingsValue = {
+  wompi_public_key: string;
+  wompi_environment: "sandbox" | "production";
+  whatsapp_notifications: string;
+  cod_enabled: boolean;
+  local_city: string;
+  shipping_local: number;
+  shipping_national: number;
+};
+
+const defaultPayments: PaymentSettingsValue = {
+  wompi_public_key: "",
+  wompi_environment: "sandbox",
+  whatsapp_notifications: "",
+  cod_enabled: true,
+  local_city: "Cali",
+  shipping_local: 8000,
+  shipping_national: 18000,
+};
+
+const PaymentSettingsSection = () => {
+  const queryClient = useQueryClient();
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["admin-payment-settings"],
+    queryFn: async (): Promise<PaymentSettingsValue> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "payments")
+        .maybeSingle();
+      if (error) throw error;
+      const v = (data?.value ?? {}) as Partial<PaymentSettingsValue>;
+      return { ...defaultPayments, ...v };
+    },
+  });
+
+  const [draft, setDraft] = useState<PaymentSettingsValue | null>(null);
+  useEffect(() => { if (settings && !draft) setDraft(settings); }, [settings, draft]);
+
+  const current: PaymentSettingsValue = draft ?? settings ?? defaultPayments;
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const payload: PaymentSettingsValue = {
+        ...current,
+        shipping_local: Number(current.shipping_local) || 0,
+        shipping_national: Number(current.shipping_national) || 0,
+      };
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "payments", value: payload as unknown as Json }, { onConflict: "key" });
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("Configuración guardada");
+      await queryClient.invalidateQueries({ queryKey: ["admin-payment-settings"] });
+      await queryClient.invalidateQueries({ queryKey: ["site-settings", "payments"] });
+    },
+    onError: (error: unknown) => {
+      toast.error(error instanceof Error ? error.message : "Error al guardar");
+    },
+  });
+
+  if (isLoading || !draft) return <LoadingPanel />;
+
+  const set = <K extends keyof PaymentSettingsValue>(k: K, v: PaymentSettingsValue[K]) =>
+    setDraft({ ...current, [k]: v });
+
+  return (
+    <section>
+      <PageHeader
+        eyebrow="Configuración"
+        title="Pagos & Envíos"
+        action={
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar cambios"}
+          </Button>
+        }
+      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-5 rounded-md border border-subtle bg-surface p-6">
+          <h3 className="font-display text-lg font-bold">Wompi</h3>
+          <div className="space-y-2">
+            <Label>Llave pública de Wompi</Label>
+            <Input
+              value={current.wompi_public_key}
+              onChange={(e) => set("wompi_public_key", e.target.value)}
+              placeholder="pub_test_xxx o pub_prod_xxx"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Ambiente</Label>
+            <Select value={current.wompi_environment} onValueChange={(v) => set("wompi_environment", v as PaymentSettingsValue["wompi_environment"])}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sandbox">Sandbox (pruebas)</SelectItem>
+                <SelectItem value="production">Producción</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>WhatsApp para notificaciones</Label>
+            <Input
+              value={current.whatsapp_notifications}
+              onChange={(e) => set("whatsapp_notifications", e.target.value)}
+              placeholder="3001234567"
+            />
+            <p className="text-xs text-muted-foreground">Aparece como botón en la pantalla de confirmación del pedido.</p>
+          </div>
+        </div>
+
+        <div className="space-y-5 rounded-md border border-subtle bg-surface p-6">
+          <h3 className="font-display text-lg font-bold">Envíos</h3>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label>Habilitar contraentrega</Label>
+              <p className="text-xs text-muted-foreground">Disponible en toda Colombia. Fuera de la ciudad local se cobra el envío anticipado.</p>
+            </div>
+            <Switch checked={current.cod_enabled} onCheckedChange={(v) => set("cod_enabled", v)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Ciudad local (entrega sin anticipo)</Label>
+            <Input value={current.local_city} onChange={(e) => set("local_city", e.target.value)} placeholder="Cali" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Costo envío local</Label>
+              <Input
+                type="number"
+                min={0}
+                value={current.shipping_local}
+                onChange={(e) => set("shipping_local", Number(e.target.value))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Costo envío nacional</Label>
+              <Input
+                type="number"
+                min={0}
+                value={current.shipping_national}
+                onChange={(e) => set("shipping_national", Number(e.target.value))}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export default AdminStub;
