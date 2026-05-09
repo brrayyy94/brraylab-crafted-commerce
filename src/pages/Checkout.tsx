@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { Lock, ShieldCheck, Truck, ChevronLeft, Loader2, UserCircle2 } from "lucide-react";
+import { Lock, ShieldCheck, Truck, ChevronLeft, Loader2, UserCircle2, CreditCard, Banknote, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatPrice } from "@/data/products";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { usePaymentSettings, normalizeCity } from "@/hooks/usePaymentSettings";
+import { buildWompiCheckoutUrl } from "@/lib/wompi";
 
 const COLOMBIA_DEPTS = [
   "Amazonas","Antioquia","Arauca","Atlántico","Bolívar","Boyacá","Caldas","Caquetá","Casanare","Cauca",
@@ -16,8 +18,7 @@ const COLOMBIA_DEPTS = [
   "Sucre","Tolima","Valle del Cauca","Vaupés","Vichada",
 ];
 
-const SHIPPING_FREE_THRESHOLD = 150_000;
-const SHIPPING_COST = 15_000;
+type PaymentChoice = "wompi_full" | "cod";
 
 const dataSchema = z.object({
   full_name: z.string().trim().min(3, "Mínimo 3 caracteres").max(100),
@@ -36,7 +37,7 @@ type Step = 1 | 2 | 3;
 
 const stepLabels: Record<Step, string> = {
   1: "Datos",
-  2: "Envío",
+  2: "Envío y pago",
   3: "Confirmación",
 };
 
@@ -44,10 +45,12 @@ const Checkout = () => {
   const navigate = useNavigate();
   const { items, subtotal, clear } = useCart();
   const { user } = useAuth();
+  const { data: payments } = usePaymentSettings();
 
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
   const [guestMode, setGuestMode] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>("wompi_full");
 
   const [form, setForm] = useState({
     full_name: "",
@@ -60,7 +63,6 @@ const Checkout = () => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Prefill con datos del usuario logueado
   useEffect(() => {
     if (user) {
       setForm((f) => ({
@@ -72,8 +74,29 @@ const Checkout = () => {
     }
   }, [user]);
 
-  const shippingCost = subtotal >= SHIPPING_FREE_THRESHOLD ? 0 : items.length > 0 ? SHIPPING_COST : 0;
+  const isLocalCity = useMemo(() => {
+    if (!payments || !form.city) return false;
+    return normalizeCity(form.city) === normalizeCity(payments.local_city);
+  }, [form.city, payments]);
+
+  const shippingCost = useMemo(() => {
+    if (!payments || items.length === 0) return 0;
+    return isLocalCity ? payments.shipping_local : payments.shipping_national;
+  }, [payments, isLocalCity, items.length]);
+
   const total = subtotal + shippingCost;
+
+  // Montos según método
+  const codEnabled = payments?.cod_enabled ?? true;
+  const amounts = useMemo(() => {
+    if (paymentChoice === "wompi_full") {
+      return { paidOnline: total, dueOnDelivery: 0 };
+    }
+    // COD
+    return isLocalCity
+      ? { paidOnline: 0, dueOnDelivery: total }
+      : { paidOnline: shippingCost, dueOnDelivery: subtotal };
+  }, [paymentChoice, total, isLocalCity, shippingCost, subtotal]);
 
   const update = (field: keyof typeof form, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -104,18 +127,37 @@ const Checkout = () => {
 
   const placeOrder = async () => {
     if (items.length === 0) return;
+    if (!payments) {
+      toast.error("Configuración de pagos no disponible");
+      return;
+    }
     setSubmitting(true);
     try {
-      // 1. Crear orden
+      const usingWompi = paymentChoice === "wompi_full" || (paymentChoice === "cod" && !isLocalCity);
+      const initialPaymentStatus = paymentChoice === "wompi_full"
+        ? "pending"
+        : isLocalCity
+          ? "cod_pending"
+          : "pending"; // anticipo de envío con Wompi
+
+      const paymentMethodLabel = paymentChoice === "wompi_full"
+        ? "wompi_full"
+        : isLocalCity
+          ? "cash_on_delivery"
+          : "wompi_shipping_cod_product";
+
       const orderPayload = {
         user_id: user?.id ?? null,
         guest_email: user ? null : form.email.toLowerCase().trim(),
         subtotal,
         shipping_cost: shippingCost,
         total,
+        amount_paid_online: amounts.paidOnline,
+        amount_due_on_delivery: amounts.dueOnDelivery,
         status: "pending" as const,
-        payment_status: "pending" as const,
-        payment_method: "contra_entrega",
+        payment_status: initialPaymentStatus as "pending" | "cod_pending",
+        payment_method: paymentMethodLabel,
+        payment_environment: payments.wompi_environment,
         notes: form.notes || null,
       };
       const { data: order, error: orderErr } = await supabase
@@ -125,7 +167,6 @@ const Checkout = () => {
         .single();
       if (orderErr || !order) throw orderErr ?? new Error("No se pudo crear la orden");
 
-      // 2. Items
       const itemsPayload = items.map((it) => ({
         order_id: order.id,
         product_id: it.product.id,
@@ -137,7 +178,6 @@ const Checkout = () => {
       const { error: itemsErr } = await supabase.from("order_items").insert(itemsPayload);
       if (itemsErr) throw itemsErr;
 
-      // 3. Address
       const { error: addrErr } = await supabase.from("order_addresses").insert({
         order_id: order.id,
         full_name: form.full_name.trim(),
@@ -150,12 +190,40 @@ const Checkout = () => {
       });
       if (addrErr) throw addrErr;
 
+      // Si requiere Wompi, generar firma y redirigir
+      if (usingWompi) {
+        if (!payments.wompi_public_key) {
+          toast.error("Wompi no está configurado", { description: "Pídele al administrador que configure la llave pública." });
+          setSubmitting(false);
+          return;
+        }
+        const amountInCents = Math.round(amounts.paidOnline * 100);
+        const { data: tx, error: txErr } = await supabase.functions.invoke("wompi-create-transaction", {
+          body: { orderId: order.id, amountInCents },
+        });
+        if (txErr || !tx?.signature) throw txErr ?? new Error("No se pudo iniciar el pago");
+
+        const redirectUrl = `${window.location.origin}/orden/${order.order_number}`;
+        const url = buildWompiCheckoutUrl({
+          publicKey: payments.wompi_public_key,
+          amountInCents: tx.amountInCents,
+          reference: tx.reference,
+          signature: tx.signature,
+          redirectUrl,
+          customerEmail: form.email.trim().toLowerCase(),
+        });
+        clear();
+        window.location.href = url;
+        return;
+      }
+
+      // COD local: ir directo a confirmación
       clear();
       toast.success("Pedido creado", { description: `Orden ${order.order_number}` });
       navigate(`/orden/${order.order_number}`);
     } catch (err) {
       console.error("[checkout] error", err);
-      toast.error("No se pudo procesar el pedido", { description: "Intenta de nuevo en un momento." });
+      toast.error("No se pudo procesar el pedido", { description: err instanceof Error ? err.message : "Intenta de nuevo." });
     } finally {
       setSubmitting(false);
     }
@@ -183,7 +251,6 @@ const Checkout = () => {
           {user ? "Compra como cliente registrado." : "Compra como invitado, sin necesidad de registrarte."}
         </p>
 
-        {/* Stepper */}
         <div className="flex items-center gap-2 mb-10">
           {stepperItems.map((n, idx) => (
             <div key={n} className="flex items-center gap-2 flex-1">
@@ -206,7 +273,6 @@ const Checkout = () => {
         </div>
 
         <div className="grid lg:grid-cols-[1fr_360px] gap-10">
-          {/* Form column */}
           <div className="rounded-xl bg-surface border border-subtle p-6 md:p-8 space-y-6">
             {step === 1 && (
               <>
@@ -241,28 +307,9 @@ const Checkout = () => {
                 {(user || guestMode) && (
                   <>
                     <h2 className="font-display font-bold text-xl">Datos de contacto</h2>
-                    <Field
-                      label="Nombre completo"
-                      value={form.full_name}
-                      onChange={(v) => update("full_name", v)}
-                      error={errors.full_name}
-                      placeholder="Andrés Martínez"
-                    />
-                    <Field
-                      label="Email"
-                      type="email"
-                      value={form.email}
-                      onChange={(v) => update("email", v)}
-                      error={errors.email}
-                      placeholder="tu@email.com"
-                    />
-                    <Field
-                      label="Teléfono / WhatsApp"
-                      value={form.phone}
-                      onChange={(v) => update("phone", v)}
-                      error={errors.phone}
-                      placeholder="3001234567"
-                    />
+                    <Field label="Nombre completo" value={form.full_name} onChange={(v) => update("full_name", v)} error={errors.full_name} placeholder="Andrés Martínez" />
+                    <Field label="Email" type="email" value={form.email} onChange={(v) => update("email", v)} error={errors.email} placeholder="tu@email.com" />
+                    <Field label="Teléfono / WhatsApp" value={form.phone} onChange={(v) => update("phone", v)} error={errors.phone} placeholder="3001234567" />
                   </>
                 )}
               </>
@@ -273,9 +320,7 @@ const Checkout = () => {
                 <h2 className="font-display font-bold text-xl">Dirección de envío</h2>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                      Departamento
-                    </label>
+                    <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-2">Departamento</label>
                     <select
                       value={form.department}
                       onChange={(e) => update("department", e.target.value)}
@@ -289,25 +334,11 @@ const Checkout = () => {
                     </select>
                     {errors.department && <p className="text-xs text-destructive mt-1">{errors.department}</p>}
                   </div>
-                  <Field
-                    label="Ciudad"
-                    value={form.city}
-                    onChange={(v) => update("city", v)}
-                    error={errors.city}
-                    placeholder="Cali"
-                  />
+                  <Field label="Ciudad" value={form.city} onChange={(v) => update("city", v)} error={errors.city} placeholder={payments?.local_city ?? "Cali"} />
                 </div>
-                <Field
-                  label="Dirección"
-                  value={form.address}
-                  onChange={(v) => update("address", v)}
-                  error={errors.address}
-                  placeholder="Calle 10 #4-25, apto 502"
-                />
+                <Field label="Dirección" value={form.address} onChange={(v) => update("address", v)} error={errors.address} placeholder="Calle 10 #4-25, apto 502" />
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-2">
-                    Notas (opcional)
-                  </label>
+                  <label className="block text-xs uppercase tracking-wider text-muted-foreground mb-2">Notas (opcional)</label>
                   <textarea
                     value={form.notes}
                     onChange={(e) => update("notes", e.target.value)}
@@ -315,6 +346,49 @@ const Checkout = () => {
                     placeholder="Indicaciones para entrega…"
                     className="w-full px-3 py-2 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30"
                   />
+                </div>
+
+                {form.city.trim() && (
+                  <div className="rounded-lg border border-subtle bg-surface-elevated p-4 text-sm">
+                    <p className="text-muted-foreground">
+                      {isLocalCity
+                        ? <>Entrega local en <b>{payments?.local_city}</b>. Domicilio: <b>{formatPrice(shippingCost)}</b>.</>
+                        : <>Envío nacional. Costo: <b>{formatPrice(shippingCost)}</b>.</>}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-3 pt-2">
+                  <h3 className="font-display font-bold text-lg">Método de pago</h3>
+
+                  <PaymentOption
+                    selected={paymentChoice === "wompi_full"}
+                    onClick={() => setPaymentChoice("wompi_full")}
+                    icon={CreditCard}
+                    title="Pagar todo con Wompi"
+                    desc={`Paga ${formatPrice(total)} ahora con tarjeta, PSE o Nequi.`}
+                  />
+
+                  {codEnabled && (
+                    <PaymentOption
+                      selected={paymentChoice === "cod"}
+                      onClick={() => setPaymentChoice("cod")}
+                      icon={Banknote}
+                      title="Contraentrega"
+                      desc={
+                        isLocalCity
+                          ? `Pagas ${formatPrice(total)} al recibir (producto + domicilio).`
+                          : `Anticipa el envío de ${formatPrice(shippingCost)} con Wompi · pagas ${formatPrice(subtotal)} al recibir el producto.`
+                      }
+                    />
+                  )}
+
+                  {paymentChoice === "cod" && !isLocalCity && form.city.trim() && (
+                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm flex gap-3">
+                      <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                      <p>Para envíos fuera de {payments?.local_city} debes pagar el domicilio anticipado para garantizar el envío.</p>
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -336,21 +410,25 @@ const Checkout = () => {
                 </div>
                 <div className="rounded-lg bg-surface-elevated border border-subtle p-4 text-sm space-y-2">
                   <p className="font-medium">Método de pago</p>
-                  <p className="text-muted-foreground">Pago contra entrega · Cobro al recibir el pedido.</p>
+                  {paymentChoice === "wompi_full" && (
+                    <p className="text-muted-foreground">Pagas <b className="text-foreground">{formatPrice(total)}</b> ahora con Wompi.</p>
+                  )}
+                  {paymentChoice === "cod" && isLocalCity && (
+                    <p className="text-muted-foreground">Contraentrega · pagas <b className="text-foreground">{formatPrice(total)}</b> al recibir.</p>
+                  )}
+                  {paymentChoice === "cod" && !isLocalCity && (
+                    <>
+                      <p className="text-muted-foreground">Anticipas <b className="text-foreground">{formatPrice(shippingCost)}</b> (envío) con Wompi.</p>
+                      <p className="text-muted-foreground">Pagas <b className="text-foreground">{formatPrice(subtotal)}</b> al recibir el producto.</p>
+                    </>
+                  )}
                 </div>
                 <ul className="divide-y divide-subtle">
                   {items.map((it) => {
                     const img = it.product.images?.[0] || it.product.image;
                     return (
                       <li key={it.product.slug} className="flex items-center gap-3 py-3 text-sm">
-                        <img
-                          src={img}
-                          alt={it.product.name}
-                          width={64}
-                          height={64}
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
-                          className="h-16 w-16 rounded-lg object-cover bg-surface-elevated shrink-0"
-                        />
+                        <img src={img} alt={it.product.name} width={64} height={64} onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }} className="h-16 w-16 rounded-lg object-cover bg-surface-elevated shrink-0" />
                         <div className="flex-1 min-w-0">
                           <p className="truncate">{it.product.name}</p>
                           <p className="text-xs text-muted-foreground">Cant: {it.quantity}</p>
@@ -378,13 +456,12 @@ const Checkout = () => {
                   className="h-12 px-7 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all active:scale-[0.97] shadow-purple disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
                 >
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Confirmar pedido
+                  {paymentChoice === "wompi_full" || (paymentChoice === "cod" && !isLocalCity) ? "Pagar con Wompi" : "Confirmar pedido"}
                 </button>
               )}
             </div>
           </div>
 
-          {/* Sidebar resumen */}
           <aside className="self-start lg:sticky lg:top-24 space-y-5 p-6 rounded-xl bg-surface border border-subtle">
             <h2 className="font-display font-bold text-lg">Resumen</h2>
             <ul className="space-y-3 max-h-60 overflow-y-auto text-sm">
@@ -392,14 +469,7 @@ const Checkout = () => {
                 const img = it.product.images?.[0] || it.product.image;
                 return (
                   <li key={it.product.slug} className="flex gap-3">
-                    <img
-                      src={img}
-                      alt={it.product.name}
-                      width={64}
-                      height={64}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }}
-                      className="h-16 w-16 rounded-lg object-cover bg-surface-elevated shrink-0"
-                    />
+                    <img src={img} alt={it.product.name} width={64} height={64} onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/placeholder.svg"; }} className="h-16 w-16 rounded-lg object-cover bg-surface-elevated shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="truncate">{it.product.name}</p>
                       <p className="text-xs text-muted-foreground">x{it.quantity}</p>
@@ -413,18 +483,19 @@ const Checkout = () => {
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatPrice(subtotal)}</span></div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Envío</span>
-                <span>{shippingCost === 0 ? <span className="text-success">Gratis</span> : formatPrice(shippingCost)}</span>
+                <span>{shippingCost === 0 ? <span className="text-success">—</span> : formatPrice(shippingCost)}</span>
               </div>
-              {shippingCost > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  Envío gratis en compras desde {formatPrice(SHIPPING_FREE_THRESHOLD)}.
-                </p>
-              )}
             </div>
             <div className="border-t border-subtle pt-4 flex justify-between items-baseline">
               <span className="text-sm">Total</span>
               <span className="font-display font-extrabold text-2xl text-primary-glow">{formatPrice(total)}</span>
             </div>
+            {step >= 2 && (
+              <div className="text-xs text-muted-foreground border-t border-subtle pt-3 space-y-1">
+                <div className="flex justify-between"><span>Pagas ahora</span><span className="text-foreground">{formatPrice(amounts.paidOnline)}</span></div>
+                <div className="flex justify-between"><span>Al recibir</span><span className="text-foreground">{formatPrice(amounts.dueOnDelivery)}</span></div>
+              </div>
+            )}
             <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2">
               <span className="inline-flex items-center gap-1"><Lock className="h-3.5 w-3.5" /> Seguro</span>
               <span className="inline-flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Rápido</span>
@@ -436,6 +507,29 @@ const Checkout = () => {
     </section>
   );
 };
+
+const PaymentOption = ({
+  selected, onClick, icon: Icon, title, desc,
+}: {
+  selected: boolean; onClick: () => void; icon: React.ComponentType<{ className?: string }>; title: string; desc: string;
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={cn(
+      "w-full text-left rounded-xl border p-4 flex gap-3 transition-all",
+      selected ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "border-subtle bg-surface-elevated hover:border-primary-glow"
+    )}
+  >
+    <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", selected ? "bg-primary text-primary-foreground" : "bg-surface text-primary-glow")}>
+      <Icon className="h-5 w-5" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="font-medium text-sm">{title}</p>
+      <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+    </div>
+  </button>
+);
 
 const Field = ({
   label, value, onChange, error, placeholder, type = "text",
