@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CheckCircle2, Package, MapPin, Receipt, UserPlus } from "lucide-react";
+import { CheckCircle2, Package, MapPin, Receipt, UserPlus, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/data/products";
 import { useAuth } from "@/context/AuthContext";
+import { usePaymentSettings } from "@/hooks/usePaymentSettings";
+import { buildOrderWhatsappMessage, buildWhatsappLink } from "@/lib/whatsapp";
 
 type OrderRow = {
   id: string;
@@ -14,6 +16,8 @@ type OrderRow = {
   subtotal: number;
   shipping_cost: number;
   total: number;
+  amount_paid_online: number | null;
+  amount_due_on_delivery: number | null;
   notes: string | null;
   created_at: string;
   user_id: string | null;
