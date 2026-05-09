@@ -128,8 +128,37 @@ const OrderConfirmed = () => {
               <span>Total</span>
               <span className="font-display font-extrabold text-2xl text-primary-glow">{formatPrice(Number(order.total))}</span>
             </div>
+            {(Number(order.amount_paid_online ?? 0) > 0 || Number(order.amount_due_on_delivery ?? 0) > 0) && (
+              <div className="pt-3 mt-2 border-t border-subtle space-y-1">
+                <div className="flex justify-between text-muted-foreground"><span>Pagado en línea</span><span className="text-foreground">{formatPrice(Number(order.amount_paid_online ?? 0))}</span></div>
+                <div className="flex justify-between text-muted-foreground"><span>A pagar al recibir</span><span className="text-foreground">{formatPrice(Number(order.amount_due_on_delivery ?? 0))}</span></div>
+              </div>
+            )}
           </div>
         </div>
+
+        {payments?.whatsapp_notifications && addr && (
+          <div className="mt-6 text-center">
+            <a
+              href={buildWhatsappLink(payments.whatsapp_notifications, buildOrderWhatsappMessage({
+                orderNumber: order.order_number,
+                customerName: addr.full_name,
+                city: `${addr.city}, ${addr.department}`,
+                address: addr.address,
+                total: Number(order.total),
+                paidOnline: Number(order.amount_paid_online ?? 0),
+                dueOnDelivery: Number(order.amount_due_on_delivery ?? 0),
+                paymentLabel: order.payment_method ?? "—",
+              }))}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 items-center gap-2 px-5 rounded-full bg-success text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Notificar por WhatsApp
+            </a>
+          </div>
+        )}
 
         {!user && order.guest_email && (
           <div className="mt-10 rounded-xl border border-primary/30 bg-primary/5 p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
