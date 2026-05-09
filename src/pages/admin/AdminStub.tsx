@@ -5,6 +5,7 @@ import {
   BarChart3,
   Boxes,
   Check,
+  CreditCard,
   Image as ImageIcon,
   Layers,
   Loader2,
@@ -88,7 +89,7 @@ type ReviewRow = Tables<"reviews"> & {
   profile?: Pick<ProfileRow, "name" | "email"> | null;
 };
 
-type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes" | "hero";
+type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes" | "hero" | "pagos";
 
 type ProductForm = {
   id?: string;
@@ -115,6 +116,7 @@ const navItems: Array<{ key: SectionKey; to: string; label: string; icon: Compon
   { key: "resenas", to: "/admin/resenas", label: "Reseñas", icon: MessageSquare },
   { key: "mensajes", to: "/admin/mensajes", label: "Mensajes", icon: Mail },
   { key: "hero", to: "/admin/hero", label: "Hero", icon: ImageIcon },
+  { key: "pagos", to: "/admin/pagos", label: "Pagos & Envíos", icon: CreditCard },
 ];
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -207,6 +209,7 @@ const AdminStub = () => {
           {section === "resenas" && <ReviewsSection />}
           {section === "mensajes" && <MessagesSection />}
           {section === "hero" && <HeroSettingsSection />}
+          {section === "pagos" && <PaymentSettingsSection />}
           {(section === "dashboard" || !navItems.some((item) => item.key === section)) && <DashboardSection />}
         </div>
       </main>
