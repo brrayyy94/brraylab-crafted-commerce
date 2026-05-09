@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { CheckCircle2, Package, MapPin, Receipt, UserPlus } from "lucide-react";
+import { CheckCircle2, Package, MapPin, Receipt, UserPlus, MessageCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatPrice } from "@/data/products";
 import { useAuth } from "@/context/AuthContext";
+import { usePaymentSettings } from "@/hooks/usePaymentSettings";
+import { buildOrderWhatsappMessage, buildWhatsappLink } from "@/lib/whatsapp";
 
 type OrderRow = {
   id: string;
@@ -14,6 +16,8 @@ type OrderRow = {
   subtotal: number;
   shipping_cost: number;
   total: number;
+  amount_paid_online: number | null;
+  amount_due_on_delivery: number | null;
   notes: string | null;
   created_at: string;
   user_id: string | null;
@@ -25,6 +29,7 @@ type AddrRow = { full_name: string; phone: string; email: string; department: st
 const OrderConfirmed = () => {
   const { number } = useParams();
   const { user } = useAuth();
+  const { data: payments } = usePaymentSettings();
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [addr, setAddr] = useState<AddrRow | null>(null);
@@ -37,7 +42,7 @@ const OrderConfirmed = () => {
       if (!number) return;
       const { data: o } = await supabase
         .from("orders")
-        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, notes, created_at, user_id, guest_email")
+        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, amount_paid_online, amount_due_on_delivery, notes, created_at, user_id, guest_email")
         .eq("order_number", number)
         .maybeSingle();
       if (cancelled) return;
@@ -123,8 +128,37 @@ const OrderConfirmed = () => {
               <span>Total</span>
               <span className="font-display font-extrabold text-2xl text-primary-glow">{formatPrice(Number(order.total))}</span>
             </div>
+            {(Number(order.amount_paid_online ?? 0) > 0 || Number(order.amount_due_on_delivery ?? 0) > 0) && (
+              <div className="pt-3 mt-2 border-t border-subtle space-y-1">
+                <div className="flex justify-between text-muted-foreground"><span>Pagado en línea</span><span className="text-foreground">{formatPrice(Number(order.amount_paid_online ?? 0))}</span></div>
+                <div className="flex justify-between text-muted-foreground"><span>A pagar al recibir</span><span className="text-foreground">{formatPrice(Number(order.amount_due_on_delivery ?? 0))}</span></div>
+              </div>
+            )}
           </div>
         </div>
+
+        {payments?.whatsapp_notifications && addr && (
+          <div className="mt-6 text-center">
+            <a
+              href={buildWhatsappLink(payments.whatsapp_notifications, buildOrderWhatsappMessage({
+                orderNumber: order.order_number,
+                customerName: addr.full_name,
+                city: `${addr.city}, ${addr.department}`,
+                address: addr.address,
+                total: Number(order.total),
+                paidOnline: Number(order.amount_paid_online ?? 0),
+                dueOnDelivery: Number(order.amount_due_on_delivery ?? 0),
+                paymentLabel: order.payment_method ?? "—",
+              }))}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-11 items-center gap-2 px-5 rounded-full bg-success text-white text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Notificar por WhatsApp
+            </a>
+          </div>
+        )}
 
         {!user && order.guest_email && (
           <div className="mt-10 rounded-xl border border-primary/30 bg-primary/5 p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4">
