@@ -29,6 +29,7 @@ type AddrRow = { full_name: string; phone: string; email: string; department: st
 const OrderConfirmed = () => {
   const { number } = useParams();
   const { user } = useAuth();
+  const { data: payments } = usePaymentSettings();
   const [order, setOrder] = useState<OrderRow | null>(null);
   const [items, setItems] = useState<ItemRow[]>([]);
   const [addr, setAddr] = useState<AddrRow | null>(null);
