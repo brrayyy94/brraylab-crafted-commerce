@@ -258,12 +258,16 @@ export type Database = {
       }
       orders: {
         Row: {
+          amount_due_on_delivery: number
+          amount_paid_online: number
           created_at: string
           guest_email: string | null
           id: string
           notes: string | null
           order_number: string
+          payment_environment: string | null
           payment_method: string | null
+          payment_reference: string | null
           payment_status: Database["public"]["Enums"]["payment_status"]
           shipping_cost: number
           status: Database["public"]["Enums"]["order_status"]
@@ -274,12 +278,16 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          amount_due_on_delivery?: number
+          amount_paid_online?: number
           created_at?: string
           guest_email?: string | null
           id?: string
           notes?: string | null
           order_number?: string
+          payment_environment?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           shipping_cost?: number
           status?: Database["public"]["Enums"]["order_status"]
@@ -290,12 +298,16 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          amount_due_on_delivery?: number
+          amount_paid_online?: number
           created_at?: string
           guest_email?: string | null
           id?: string
           notes?: string | null
           order_number?: string
+          payment_environment?: string | null
           payment_method?: string | null
+          payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
           shipping_cost?: number
           status?: Database["public"]["Enums"]["order_status"]
@@ -510,7 +522,13 @@ export type Database = {
         | "shipped"
         | "delivered"
         | "cancelled"
-      payment_status: "pending" | "paid" | "failed" | "refunded"
+      payment_status:
+        | "pending"
+        | "paid"
+        | "failed"
+        | "refunded"
+        | "cod_pending"
+        | "partial_paid"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -646,7 +664,14 @@ export const Constants = {
         "delivered",
         "cancelled",
       ],
-      payment_status: ["pending", "paid", "failed", "refunded"],
+      payment_status: [
+        "pending",
+        "paid",
+        "failed",
+        "refunded",
+        "cod_pending",
+        "partial_paid",
+      ],
     },
   },
 } as const
