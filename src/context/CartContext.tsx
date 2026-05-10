@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, useReducer, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState, ReactNode } from "react";
 import type { Product } from "@/data/products";
+import { useAuth } from "@/context/AuthContext";
 
 export type CartItem = {
   product: Product;
