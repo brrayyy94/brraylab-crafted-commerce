@@ -26,7 +26,7 @@ Deno.serve(async (req) => {
 
   try {
     const { orderId, amountInCents, currency = "COP" } = await req.json();
-    if (!orderId || typeof amountInCents !== "number" || amountInCents <= 0) {
+    if (!orderId || typeof amountInCents !== "number" || !Number.isFinite(amountInCents) || amountInCents <= 0) {
       return json({ error: "Parámetros inválidos" }, 400);
     }
 
@@ -42,19 +42,30 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (orderErr || !order) return json({ error: "Pedido no encontrado" }, 404);
 
-    const integritySecret = Deno.env.get("WOMPI_INTEGRITY_SECRET");
+    const integritySecret = (Deno.env.get("WOMPI_INTEGRITY_SECRET") ?? "").trim();
     if (!integritySecret) return json({ error: "WOMPI_INTEGRITY_SECRET no configurado" }, 500);
 
-    const reference = order.order_number;
-    const amount = Math.round(amountInCents);
-    const signature = await sha256Hex(`${reference}${amount}${currency}${integritySecret}`);
+    const reference = String(order.order_number).trim();
+    const amount = Math.round(Number(amountInCents)); // entero, en centavos
+    const curr = String(currency).trim().toUpperCase(); // "COP"
+    // Wompi: SHA256(reference + amountInCents + currency + integritySecret)
+    const concatenated = `${reference}${amount}${curr}${integritySecret}`;
+    const signature = await sha256Hex(concatenated);
+
+    console.log("[wompi-create-transaction] signing", {
+      reference,
+      amount,
+      currency: curr,
+      integritySecretLength: integritySecret.length,
+      signaturePreview: `${signature.slice(0, 8)}…${signature.slice(-6)}`,
+    });
 
     await supabase
       .from("orders")
       .update({ payment_reference: reference })
       .eq("id", orderId);
 
-    return json({ reference, amountInCents: amount, currency, signature });
+    return json({ reference, amountInCents: amount, currency: curr, signature });
   } catch (e) {
     console.error("[wompi-create-transaction]", e);
     return json({ error: e instanceof Error ? e.message : "Error" }, 500);
