@@ -33,8 +33,7 @@ const ProductDetail = () => {
     toast.success("Agregado al carrito", { description: product.name });
   };
 
-  const waMessage = encodeURIComponent(`Hola BrrayLab, me interesa el producto: ${product.name}`);
-  const waUrl = `https://wa.me/message/XR4F5RKSB53KP1`;
+  const waUrl = "https://wa.me/message/XR4F5RKSB53KP1";
 
   return (
     <>
