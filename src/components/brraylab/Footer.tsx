@@ -35,15 +35,6 @@ export const Footer = () => (
             className="h-9 w-9 rounded-full bg-surface flex items-center justify-center hover:bg-primary transition-colors"
             aria-label="WhatsApp"
           >
-            <Music2 className="h-4 w-4" />
-          </a>
-          <a
-            href="https://wa.me/573164618006"
-            target="_blank"
-            rel="noreferrer"
-            className="h-9 w-9 rounded-full bg-surface flex items-center justify-center hover:bg-primary transition-colors"
-            aria-label="WhatsApp"
-          >
             <MessageCircle className="h-4 w-4" />
           </a>
         </div>
