@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, useReducer, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState, ReactNode } from "react";
 import type { Product } from "@/data/products";
+import { useAuth } from "@/context/AuthContext";
 
 export type CartItem = {
   product: Product;
@@ -58,6 +59,26 @@ const CartContext = createContext<CartContextValue | null>(null);
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(reducer, { items: [] });
   const [miniOpen, setMiniOpen] = useState(false);
+  const { user } = useAuth();
+  const prevUserIdRef = useRef<string | null | undefined>(undefined);
+
+  // Aísla el carrito por usuario: limpia al hacer login con otra cuenta o al cerrar sesión.
+  useEffect(() => {
+    const currentId = user?.id ?? null;
+    if (prevUserIdRef.current === undefined) {
+      prevUserIdRef.current = currentId;
+      return;
+    }
+    if (prevUserIdRef.current !== currentId) {
+      dispatch({ type: "CLEAR" });
+      setMiniOpen(false);
+      try {
+        localStorage.removeItem("cart");
+        localStorage.removeItem("brraylab-cart");
+      } catch {}
+      prevUserIdRef.current = currentId;
+    }
+  }, [user?.id]);
 
   const value = useMemo<CartContextValue>(() => {
     const count = state.items.reduce((s, i) => s + i.quantity, 0);
