@@ -139,24 +139,27 @@ const OrderConfirmed = () => {
 
         {payments?.whatsapp_notifications && addr && (
           <div className="mt-6 text-center">
-            <a
-              href={buildWhatsappLink(payments.whatsapp_notifications, buildOrderWhatsappMessage({
-                orderNumber: order.order_number,
-                customerName: addr.full_name,
-                city: `${addr.city}, ${addr.department}`,
-                address: addr.address,
-                total: Number(order.total),
-                paidOnline: Number(order.amount_paid_online ?? 0),
-                dueOnDelivery: Number(order.amount_due_on_delivery ?? 0),
-                paymentLabel: order.payment_method ?? "—",
-              }))}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => {
+                const msg = buildOrderWhatsappMessage({
+                  orderNumber: order.order_number,
+                  customerName: addr.full_name,
+                  city: `${addr.city}, ${addr.department}`,
+                  address: addr.address,
+                  total: Number(order.total),
+                  paidOnline: Number(order.amount_paid_online ?? 0),
+                  dueOnDelivery: Number(order.amount_due_on_delivery ?? 0),
+                  paymentLabel: order.payment_method ?? "—",
+                });
+                const url = buildWhatsappLink(payments.whatsapp_notifications, msg);
+                window.open(url, "_blank", "noopener,noreferrer");
+              }}
               className="inline-flex h-11 items-center gap-2 px-5 rounded-full bg-success text-white text-sm font-medium hover:opacity-90 transition-opacity"
             >
               <MessageCircle className="h-4 w-4" />
               Notificar por WhatsApp
-            </a>
+            </button>
           </div>
         )}
 
