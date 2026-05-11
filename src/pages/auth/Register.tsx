@@ -9,15 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const schema = z.object({
-  name: z.string().trim().min(2, "Mínimo 2 caracteres").max(80),
-  email: z.string().trim().email("Email inválido").max(255),
-  phone: z.string().trim().min(7, "Teléfono inválido").max(20).optional().or(z.literal("")),
-  password: z.string().min(8, "Mínimo 8 caracteres").max(72),
-});
+const schema = z
+  .object({
+    name: z.string().trim().min(2, "Mínimo 2 caracteres").max(80),
+    email: z.string().trim().email("Email inválido").max(255),
+    phone: z.string().trim().min(7, "Teléfono inválido").max(20).optional().or(z.literal("")),
+    password: z.string().min(8, "Mínimo 8 caracteres").max(72),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  });
 
 const Register = () => {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
