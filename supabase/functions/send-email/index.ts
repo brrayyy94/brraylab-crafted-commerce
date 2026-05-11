@@ -98,9 +98,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   // SECURITY: only callers with the internal secret may invoke this function.
-  const INTERNAL_SECRET = (Deno.env.get("SEND_EMAIL_INTERNAL_SECRET") ?? "").trim();
+  // The secret lives in the database vault; we fetch it via a service_role-only RPC.
   const provided = (req.headers.get("x-internal-secret") ?? "").trim();
-  if (!INTERNAL_SECRET || provided !== INTERNAL_SECRET) {
+  let expected = "";
+  try {
+    const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data, error } = await adminClient.rpc("_send_email_internal_secret_admin");
+    if (error) throw error;
+    expected = String(data ?? "").trim();
+  } catch (e) {
+    console.error("[send-email] failed to load internal secret", e);
+  }
+  if (!expected || provided !== expected) {
     return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
