@@ -27,11 +27,36 @@ export const Header = () => {
   const location = useLocation();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 50);
+    const getThreshold = () => {
+      const hero = document.querySelector<HTMLElement>("[data-hero]");
+      // If there's no hero on this page, fall back to a small threshold
+      return hero ? Math.max(0, hero.offsetHeight - 80) : 20;
+    };
+    let threshold = getThreshold();
+    const onScroll = () => {
+      if (window.scrollY === 0) {
+        setScrolled(false);
+        return;
+      }
+      setScrolled(window.scrollY > threshold);
+    };
+    const onResize = () => {
+      threshold = getThreshold();
+      onScroll();
+    };
+    // Recompute after layout/images settle
+    const r1 = requestAnimationFrame(onResize);
+    const t1 = setTimeout(onResize, 300);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelAnimationFrame(r1);
+      clearTimeout(t1);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [location.pathname]);
 
   useEffect(() => {
     setOpen(false);
