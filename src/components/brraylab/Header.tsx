@@ -6,12 +6,17 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
-const links = [
+const leftLinks = [
   { to: "/", label: "Inicio" },
   { to: "/tienda", label: "Tienda" },
+];
+
+const rightLinks = [
   { to: "/nosotros", label: "Nosotros" },
   { to: "/contacto", label: "Contacto" },
 ];
+
+const allLinks = [...leftLinks, ...rightLinks];
 
 export const Header = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -22,10 +27,36 @@ export const Header = () => {
   const location = useLocation();
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 60);
+    const getThreshold = () => {
+      const hero = document.querySelector<HTMLElement>("[data-hero]");
+      // If there's no hero on this page, fall back to a small threshold
+      return hero ? Math.max(0, hero.offsetHeight - 80) : 20;
+    };
+    let threshold = getThreshold();
+    const onScroll = () => {
+      if (window.scrollY === 0) {
+        setScrolled(false);
+        return;
+      }
+      setScrolled(window.scrollY > threshold);
+    };
+    const onResize = () => {
+      threshold = getThreshold();
+      onScroll();
+    };
+    // Recompute after layout/images settle
+    const r1 = requestAnimationFrame(onResize);
+    const t1 = setTimeout(onResize, 300);
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelAnimationFrame(r1);
+      clearTimeout(t1);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [location.pathname]);
 
   useEffect(() => {
     setOpen(false);
@@ -38,45 +69,77 @@ export const Header = () => {
     return () => clearTimeout(t);
   }, [count]);
 
+  const isScrolled = scrolled || open;
+
   return (
     <header
       className={cn(
-        "fixed top-0 inset-x-0 z-50 transition-all duration-500",
-        scrolled || open ? "bg-background/85 backdrop-blur-xl border-b border-subtle" : "bg-transparent",
+        "fixed top-0 inset-x-0 z-50 navbar-premium",
+        isScrolled && "scrolled"
       )}
     >
-      <div className="container flex h-16 items-center justify-between gap-6">
-        <Logo />
+      <div className="container grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-6">
+        {/* LEFT: nav links (desktop) / mobile menu button */}
+        <div className="flex items-center justify-start">
+          <nav className="hidden md:flex items-center gap-8">
+            {leftLinks.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                end={l.to === "/"}
+                className={({ isActive }) =>
+                  cn(
+                    "text-sm font-medium tracking-wide transition-colors duration-300 hover:text-primary-glow",
+                    isActive ? "text-primary-glow" : "text-white/90"
+                  )
+                }
+              >
+                {l.label}
+              </NavLink>
+            ))}
+          </nav>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/10 transition-colors"
+            aria-label="Menú"
+          >
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
 
-        <nav className="hidden md:flex items-center gap-8">
-          {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              end={l.to === "/"}
-              className={({ isActive }) =>
-                cn(
-                  "text-sm font-medium tracking-wide transition-colors duration-300 hover:text-primary-glow",
-                  isActive ? "text-primary-glow" : "text-foreground/80",
-                )
-              }
-            >
-              {l.label}
-            </NavLink>
-          ))}
-        </nav>
+        {/* CENTER: logo */}
+        <div className="flex items-center justify-center">
+          <Logo />
+        </div>
 
-        <div className="flex items-center gap-1">
+        {/* RIGHT: nav links + actions */}
+        <div className="flex items-center justify-end gap-1">
+          <nav className="hidden md:flex items-center gap-8 mr-4">
+            {rightLinks.map((l) => (
+              <NavLink
+                key={l.to}
+                to={l.to}
+                className={({ isActive }) =>
+                  cn(
+                    "text-sm font-medium tracking-wide transition-colors duration-300 hover:text-primary-glow",
+                    isActive ? "text-primary-glow" : "text-white/90"
+                  )
+                }
+              >
+                {l.label}
+              </NavLink>
+            ))}
+          </nav>
           <Link
             to={user ? "/mi-cuenta" : "/auth/login"}
-            className="hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground/90 hover:bg-surface transition-colors"
+            className="hidden sm:inline-flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/10 transition-colors"
             aria-label={user ? "Mi cuenta" : "Iniciar sesión"}
           >
             <User className="h-5 w-5" />
           </Link>
           <button
             onClick={openMini}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground/90 hover:bg-surface transition-colors"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full text-white/90 hover:bg-white/10 transition-colors"
             aria-label="Abrir carrito"
           >
             <ShoppingBag className="h-5 w-5" />
@@ -84,27 +147,20 @@ export const Header = () => {
               <span
                 className={cn(
                   "absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center",
-                  pop && "animate-scale-pop",
+                  pop && "animate-scale-pop"
                 )}
               >
                 {count}
               </span>
             )}
           </button>
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-full text-foreground/90 hover:bg-surface transition-colors"
-            aria-label="Menú"
-          >
-            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
         </div>
       </div>
 
       {open && (
-        <div className="md:hidden border-t border-subtle animate-fade-in">
+        <div className="md:hidden border-t border-white/10 bg-background/85 backdrop-blur-xl animate-fade-in">
           <nav className="container py-4 flex flex-col gap-1">
-            {links.map((l) => (
+            {allLinks.map((l) => (
               <Link
                 key={l.to}
                 to={l.to}
