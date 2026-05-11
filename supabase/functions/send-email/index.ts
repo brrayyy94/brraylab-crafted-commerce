@@ -16,6 +16,22 @@ const ADMIN_EMAIL = "brraylab@gmail.com";
 const REPLY_TO = "hola@brraylab.com";
 const SITE_URL = "https://brraylab.com";
 
+// Resend template IDs
+const TEMPLATES = {
+  welcome: "6cb77846-db68-4d8a-9351-07750cb7d082",
+  order_created_customer: "0f700b62-4138-431c-8bc2-6f0687c43c09",
+  order_status: "1b3e0a24-afd0-4ba3-aa8a-5bd05fa94e48",
+  order_created_admin: "9800cf05-909a-43cd-aec3-9e78ae28218d",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Pendiente",
+  processing: "En preparación",
+  shipped: "Enviado",
+  delivered: "Entregado",
+  cancelled: "Cancelado",
+};
+
 const fmtCOP = (n: number) =>
   new Intl.NumberFormat("es-CO", {
     style: "currency",
@@ -23,7 +39,18 @@ const fmtCOP = (n: number) =>
     maximumFractionDigits: 0,
   }).format(Number(n) || 0);
 
-async function sendViaResend(to: string | string[], subject: string, html: string) {
+const fmtDate = (d: string | Date) =>
+  new Intl.DateTimeFormat("es-CO", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "America/Bogota",
+  }).format(new Date(d));
+
+async function sendWithTemplate(
+  to: string | string[],
+  templateId: string,
+  variables: Record<string, any>,
+) {
   if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY no configurada");
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -34,9 +61,8 @@ async function sendViaResend(to: string | string[], subject: string, html: strin
     body: JSON.stringify({
       from: FROM,
       to: Array.isArray(to) ? to : [to],
-      subject,
-      html,
       reply_to: REPLY_TO,
+      template: { id: templateId, variables },
     }),
   });
   if (!res.ok) {
@@ -46,135 +72,28 @@ async function sendViaResend(to: string | string[], subject: string, html: strin
   return res.json();
 }
 
-const layout = (title: string, body: string) => `
-<!doctype html><html lang="es"><head><meta charset="utf-8"/><title>${title}</title></head>
-<body style="margin:0;padding:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#1d1d1f;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f7;padding:32px 16px;">
-<tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e5ea;">
-<tr><td style="background:#0a0a0a;padding:22px 28px;text-align:center;">
-<a href="${SITE_URL}" style="color:#fff;font-size:22px;font-weight:800;letter-spacing:0.5px;text-decoration:none;">BrrayLab</a>
-</td></tr>
-<tr><td style="padding:32px 28px;">${body}</td></tr>
-<tr><td style="background:#fafafa;padding:18px 28px;text-align:center;font-size:12px;color:#86868b;border-top:1px solid #e5e5ea;">
-© ${new Date().getFullYear()} BrrayLab · <a href="${SITE_URL}" style="color:#86868b;">brraylab.com</a><br/>
-¿Dudas? Escríbenos a <a href="mailto:${REPLY_TO}" style="color:#86868b;">${REPLY_TO}</a>
-</td></tr>
-</table>
-</td></tr></table>
-</body></html>`;
-
-function itemsTable(items: any[]) {
-  const rows = items
-    .map(
-      (it: any) => `
-<tr>
-  <td style="padding:10px 0;border-bottom:1px solid #f0f0f0;">
-    <strong>${escapeHtml(it.name)}</strong><br/>
-    <span style="color:#86868b;font-size:13px;">Cant: ${it.quantity}</span>
-  </td>
-  <td style="padding:10px 0;border-bottom:1px solid #f0f0f0;text-align:right;white-space:nowrap;">
-    ${fmtCOP(Number(it.price) * Number(it.quantity))}
-  </td>
-</tr>`
-    )
-    .join("");
-  return `<table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:8px;">${rows}</table>`;
+function formatItems(items: any[]) {
+  return (items ?? []).map((it: any) => ({
+    name: it.name,
+    quantity: it.quantity,
+    price: fmtCOP(Number(it.price)),
+    subtotal: fmtCOP(Number(it.price) * Number(it.quantity)),
+    image_url: it.image_url ?? "",
+  }));
 }
 
-function escapeHtml(s: any) {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function formatAddress(addr: any) {
+  if (!addr) return "";
+  return [
+    addr.full_name,
+    addr.address,
+    `${addr.city}, ${addr.department}`,
+    `Tel: ${addr.phone}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
-// ------- Templates -------
-function tplOrderCustomer(o: any, items: any[], addr: any) {
-  const body = `
-<h1 style="font-size:24px;margin:0 0 8px;">¡Gracias por tu compra! 🎉</h1>
-<p style="color:#515154;margin:0 0 20px;">Hemos recibido tu pedido <strong>${escapeHtml(o.order_number)}</strong>. Te contactaremos para coordinar el envío.</p>
-<div style="background:#f5f5f7;border-radius:10px;padding:16px 18px;margin:0 0 20px;">
-  <div style="font-size:12px;color:#86868b;text-transform:uppercase;letter-spacing:0.5px;">Total</div>
-  <div style="font-size:26px;font-weight:800;">${fmtCOP(o.total)}</div>
-  ${Number(o.amount_paid_online) > 0 ? `<div style="font-size:13px;color:#515154;margin-top:4px;">Pagado en línea: <strong>${fmtCOP(o.amount_paid_online)}</strong></div>` : ""}
-  ${Number(o.amount_due_on_delivery) > 0 ? `<div style="font-size:13px;color:#515154;">A pagar al recibir: <strong>${fmtCOP(o.amount_due_on_delivery)}</strong></div>` : ""}
-</div>
-<h3 style="font-size:15px;margin:20px 0 4px;">Productos</h3>
-${itemsTable(items)}
-${addr ? `<h3 style="font-size:15px;margin:24px 0 4px;">Envío</h3>
-<p style="color:#515154;margin:0;line-height:1.5;">
-  ${escapeHtml(addr.full_name)}<br/>
-  ${escapeHtml(addr.address)}<br/>
-  ${escapeHtml(addr.city)}, ${escapeHtml(addr.department)}<br/>
-  Tel: ${escapeHtml(addr.phone)}
-</p>` : ""}
-<div style="text-align:center;margin:28px 0 4px;">
-  <a href="${SITE_URL}/orden/${escapeHtml(o.order_number)}" style="display:inline-block;background:#0a0a0a;color:#fff;text-decoration:none;padding:12px 24px;border-radius:999px;font-weight:600;">Ver mi pedido</a>
-</div>`;
-  return { subject: `Pedido confirmado · ${o.order_number}`, html: layout("Pedido confirmado", body) };
-}
-
-function tplOrderAdmin(o: any, items: any[], addr: any) {
-  const body = `
-<h1 style="font-size:22px;margin:0 0 8px;">🛒 Nuevo pedido</h1>
-<p style="color:#515154;margin:0 0 16px;">Pedido <strong>${escapeHtml(o.order_number)}</strong> · Pago: <strong>${escapeHtml(o.payment_method ?? "—")}</strong></p>
-<div style="background:#f5f5f7;border-radius:10px;padding:14px 16px;margin:0 0 16px;">
-  <div style="font-size:13px;color:#515154;">Total: <strong>${fmtCOP(o.total)}</strong></div>
-  <div style="font-size:13px;color:#515154;">Pagado online: ${fmtCOP(o.amount_paid_online)} · Contra entrega: ${fmtCOP(o.amount_due_on_delivery)}</div>
-</div>
-${itemsTable(items)}
-${addr ? `<h3 style="font-size:15px;margin:20px 0 4px;">Cliente</h3>
-<p style="color:#515154;margin:0;line-height:1.5;">
-  ${escapeHtml(addr.full_name)}<br/>
-  ${escapeHtml(addr.email)} · ${escapeHtml(addr.phone)}<br/>
-  ${escapeHtml(addr.address)}, ${escapeHtml(addr.city)}, ${escapeHtml(addr.department)}
-  ${addr.notes ? `<br/><em>Notas: ${escapeHtml(addr.notes)}</em>` : ""}
-</p>` : ""}
-<div style="text-align:center;margin:24px 0 0;">
-  <a href="${SITE_URL}/admin" style="display:inline-block;background:#0a0a0a;color:#fff;text-decoration:none;padding:11px 22px;border-radius:999px;font-weight:600;">Abrir panel admin</a>
-</div>`;
-  return { subject: `🛒 Nuevo pedido ${o.order_number} · ${fmtCOP(o.total)}`, html: layout("Nuevo pedido", body) };
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "Pendiente",
-  processing: "En preparación",
-  shipped: "Enviado 🚚",
-  delivered: "Entregado ✅",
-  cancelled: "Cancelado",
-};
-
-function tplOrderStatus(o: any, addr: any) {
-  const label = STATUS_LABELS[o.status] ?? o.status;
-  const body = `
-<h1 style="font-size:22px;margin:0 0 8px;">Actualización de tu pedido</h1>
-<p style="color:#515154;margin:0 0 18px;">Hola${addr?.full_name ? " " + escapeHtml(addr.full_name.split(" ")[0]) : ""}, tu pedido <strong>${escapeHtml(o.order_number)}</strong> cambió de estado.</p>
-<div style="background:#f5f5f7;border-radius:10px;padding:18px;margin:0 0 18px;text-align:center;">
-  <div style="font-size:12px;color:#86868b;text-transform:uppercase;letter-spacing:0.5px;">Estado actual</div>
-  <div style="font-size:22px;font-weight:800;margin-top:4px;">${escapeHtml(label)}</div>
-  ${o.tracking_number ? `<div style="margin-top:10px;font-size:13px;color:#515154;">Guía: <strong>${escapeHtml(o.tracking_number)}</strong></div>` : ""}
-</div>
-<div style="text-align:center;margin:20px 0 0;">
-  <a href="${SITE_URL}/orden/${escapeHtml(o.order_number)}" style="display:inline-block;background:#0a0a0a;color:#fff;text-decoration:none;padding:12px 24px;border-radius:999px;font-weight:600;">Ver mi pedido</a>
-</div>`;
-  return { subject: `Tu pedido ${o.order_number}: ${label}`, html: layout("Estado actualizado", body) };
-}
-
-function tplWelcome(name: string) {
-  const first = (name || "").trim().split(" ")[0] || "";
-  const body = `
-<h1 style="font-size:24px;margin:0 0 8px;">¡Bienvenid${first ? "@" : "@"} a BrrayLab${first ? `, ${escapeHtml(first)}` : ""}! 💜</h1>
-<p style="color:#515154;margin:0 0 16px;line-height:1.55;">Tu cuenta está lista. Ahora puedes hacer seguimiento a tus pedidos, guardar direcciones y recibir novedades de la tienda.</p>
-<div style="text-align:center;margin:24px 0;">
-  <a href="${SITE_URL}/tienda" style="display:inline-block;background:#0a0a0a;color:#fff;text-decoration:none;padding:12px 26px;border-radius:999px;font-weight:600;">Explorar tienda</a>
-</div>
-<p style="color:#86868b;font-size:13px;margin:0;">Si tienes preguntas, respóndenos a este correo.</p>`;
-  return { subject: "¡Bienvenid@ a BrrayLab!", html: layout("Bienvenida", body) };
-}
-
-// ------- Handler -------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -182,10 +101,12 @@ Deno.serve(async (req) => {
     const { type, order_number, name, email } = await req.json();
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
+    // -------- WELCOME --------
     if (type === "welcome") {
       if (!email) throw new Error("email requerido");
-      const { subject, html } = tplWelcome(name ?? "");
-      await sendViaResend(email, subject, html);
+      await sendWithTemplate(email, TEMPLATES.welcome, {
+        customer_name: name ?? "",
+      });
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -206,25 +127,59 @@ Deno.serve(async (req) => {
     ]);
 
     const customerEmail = addr?.email ?? order.guest_email;
+    const customerName = addr?.full_name ?? "";
+    const orderUrl = `${SITE_URL}/orden/${order.order_number}`;
+    const shippingAddress = formatAddress(addr);
+    const orderItems = formatItems(items ?? []);
+    const orderTotal = fmtCOP(order.total);
+    const orderDate = fmtDate(order.created_at);
 
+    // -------- ORDER CREATED --------
     if (type === "order_created") {
+      // Customer confirmation
       if (customerEmail) {
-        const { subject, html } = tplOrderCustomer(order, items ?? [], addr);
-        await sendViaResend(customerEmail, subject, html);
+        await sendWithTemplate(customerEmail, TEMPLATES.order_created_customer, {
+          customer_name: customerName,
+          order_number: order.order_number,
+          order_date: orderDate,
+          order_total: orderTotal,
+          order_items: orderItems,
+          shipping_address: shippingAddress,
+          order_url: orderUrl,
+        });
       }
-      const { subject: aSub, html: aHtml } = tplOrderAdmin(order, items ?? [], addr);
-      await sendViaResend(ADMIN_EMAIL, aSub, aHtml);
-    } else if (type === "order_status") {
-      if (!customerEmail) throw new Error("Sin email de cliente");
-      const { subject, html } = tplOrderStatus(order, addr);
-      await sendViaResend(customerEmail, subject, html);
-    } else {
-      throw new Error(`type inválido: ${type}`);
+      // Admin notification
+      await sendWithTemplate(ADMIN_EMAIL, TEMPLATES.order_created_admin, {
+        customer_name: customerName,
+        customer_email: customerEmail ?? "",
+        customer_phone: addr?.phone ?? "",
+        shipping_address: shippingAddress,
+        order_number: order.order_number,
+        order_items: orderItems,
+        order_total: orderTotal,
+        order_date: orderDate,
+      });
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // -------- ORDER STATUS --------
+    if (type === "order_status") {
+      if (!customerEmail) throw new Error("Sin email de cliente");
+      await sendWithTemplate(customerEmail, TEMPLATES.order_status, {
+        customer_name: customerName,
+        order_number: order.order_number,
+        order_status: STATUS_LABELS[order.status] ?? order.status,
+        tracking_number: order.tracking_number ?? "",
+        order_url: orderUrl,
+      });
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    throw new Error(`type inválido: ${type}`);
   } catch (err) {
     console.error("[send-email]", err);
     return new Response(JSON.stringify({ ok: false, error: String(err) }), {
