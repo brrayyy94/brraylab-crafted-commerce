@@ -2020,4 +2020,145 @@ const PaymentSettingsSection = () => {
   );
 };
 
+type BrandSettingsValue = {
+  logo_url: string | null;
+};
+
+const AppearanceSection = () => {
+  const queryClient = useQueryClient();
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["admin-brand-settings"],
+    queryFn: async (): Promise<BrandSettingsValue> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "brand")
+        .maybeSingle();
+      if (error) throw error;
+      const v = (data?.value ?? {}) as Partial<BrandSettingsValue>;
+      return { logo_url: v.logo_url ?? null };
+    },
+  });
+
+  const [draft, setDraft] = useState<BrandSettingsValue | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (settings && !draft) setDraft(settings);
+  }, [settings, draft]);
+
+  const current: BrandSettingsValue = draft ?? settings ?? { logo_url: null };
+
+  const handleUpload = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("La imagen excede 2MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const path = `brand/logo-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("product-images")
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      setDraft({ logo_url: data.publicUrl });
+      toast.success("Logo cargado. Recuerda guardar.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo subir el logo");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "brand", value: current as unknown as Json }, { onConflict: "key" });
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("Apariencia actualizada");
+      await queryClient.invalidateQueries({ queryKey: ["admin-brand-settings"] });
+      await queryClient.invalidateQueries({ queryKey: ["site-settings", "brand"] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Error al guardar"),
+  });
+
+  const removeLogo = () => setDraft({ logo_url: null });
+
+  if (isLoading || !draft) return <LoadingPanel />;
+
+  return (
+    <section>
+      <PageHeader
+        eyebrow="Configuración"
+        title="Apariencia"
+        action={
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar cambios"}
+          </Button>
+        }
+      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-5 rounded-md border border-subtle bg-surface p-6">
+          <h3 className="font-display text-lg font-bold">Logo de la tienda</h3>
+          <p className="text-sm text-muted-foreground">
+            Formatos JPG, PNG o SVG. Máximo 2MB. Reemplaza el logo en el navbar y en el sitio. Si lo eliminas, vuelve el logo de texto "BrrayLab".
+          </p>
+          <div className="rounded-md border border-subtle bg-background/40 p-6 flex items-center justify-center min-h-[120px]">
+            {current.logo_url ? (
+              <img src={current.logo_url} alt="Logo" className="max-h-20 w-auto object-contain" />
+            ) : (
+              <span className="text-sm text-muted-foreground">Sin logo cargado</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {current.logo_url ? "Cambiar logo" : "Subir logo"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUpload(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {current.logo_url && (
+              <Button variant="outline" className="border-subtle" onClick={removeLogo}>
+                Quitar logo
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="rounded-md border border-subtle bg-surface overflow-hidden">
+          <div className="border-b border-subtle px-5 py-3 text-sm font-medium">Vista previa del navbar</div>
+          <div className="bg-background p-6 flex items-center justify-between">
+            {current.logo_url ? (
+              <img src={current.logo_url} alt="Logo preview" className="h-9 w-auto max-w-[180px] object-contain" />
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+                  <span className="font-display text-base font-extrabold text-primary-foreground">B</span>
+                </span>
+                <span className="font-display text-lg font-extrabold tracking-tight">
+                  Brray<span className="text-primary-glow">Lab</span>
+                </span>
+              </div>
+            )}
+            <span className="text-xs text-muted-foreground">Inicio · Tienda · Contacto</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export default AdminStub;
+
