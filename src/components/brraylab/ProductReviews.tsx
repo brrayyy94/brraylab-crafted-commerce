@@ -120,6 +120,10 @@ export const ProductReviews = ({ productId }: { productId: string }) => {
           <p className="text-sm text-muted-foreground">
             <Link to="/auth/login" className="text-primary-glow hover:underline">Inicia sesión</Link> para dejar una reseña.
           </p>
+        ) : !eligibleOrderId ? (
+          <p className="text-sm text-muted-foreground rounded-xl bg-surface border border-subtle p-5">
+            Solo puedes reseñar productos que hayas comprado y recibido.
+          </p>
         ) : (
           <form
             onSubmit={(e) => { e.preventDefault(); submit.mutate(); }}
