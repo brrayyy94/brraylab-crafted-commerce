@@ -50,11 +50,6 @@ const Register = () => {
       toast.error(error.message);
       return;
     }
-    supabase.functions
-      .invoke("send-email", {
-        body: { type: "welcome", email: parsed.data.email, name: parsed.data.name },
-      })
-      .catch((e) => console.warn("[send-email] welcome", e));
     setSubmitted(true);
     toast.success("Revisa tu email para confirmar tu cuenta");
   };
