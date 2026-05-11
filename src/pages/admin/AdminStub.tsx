@@ -1482,11 +1482,7 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
       const prevStatus = order.status;
       const { error } = await supabase.from("orders").update({ status, tracking_number: tracking.trim() || null }).eq("id", order.id);
       if (error) throw error;
-      if (status !== prevStatus) {
-        supabase.functions
-          .invoke("send-email", { body: { type: "order_status", order_number: order.order_number } })
-          .catch((e) => console.warn("[send-email] order_status", e));
-      }
+      // El email de cambio de estado se envía vía trigger de base de datos.
     },
     onSuccess: async () => {
       toast.success("Pedido actualizado");
