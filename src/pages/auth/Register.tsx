@@ -185,6 +185,25 @@ const Register = () => {
             />
             <p className="text-xs text-muted-foreground mt-1">Mínimo 8 caracteres.</p>
           </div>
+          <div>
+            <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              value={form.confirmPassword}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm({ ...form, confirmPassword: v });
+                setConfirmError(v && v !== form.password ? "Las contraseñas no coinciden" : null);
+              }}
+              className="bg-surface-elevated border-subtle mt-1.5"
+              required
+            />
+            {confirmError && (
+              <p className="text-xs text-destructive mt-1">{confirmError}</p>
+            )}
+          </div>
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Crear cuenta"}
           </Button>
