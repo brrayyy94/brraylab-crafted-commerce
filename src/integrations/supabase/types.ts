@@ -518,6 +518,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      place_order: {
+        Args: {
+          _address: Json
+          _guest_email?: string
+          _items: Json
+          _payment_choice: string
+        }
+        Returns: {
+          amount_paid_online: number
+          id: string
+          order_number: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "customer"
