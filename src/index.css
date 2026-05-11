@@ -9,7 +9,7 @@
 @layer base {
   :root {
     /* Core dark palette */
-    --background: 0 0% 20%; /* #0d0d0d */
+    --background: 0 0% 90%; /* #0d0d0d */
     --foreground: 0 0% 94%; /* #f0f0f0 */
 
     --surface: 0 0% 10%; /* #1a1a1a — cards */
@@ -140,7 +140,7 @@
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
   .navbar-premium.scrolled {
-    background-color: rgba(10, 10, 10, 0.75);
+    background-color: rgba(88, 28, 135, 0.85);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
