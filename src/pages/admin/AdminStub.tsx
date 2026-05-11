@@ -17,8 +17,11 @@ import {
   Plus,
   Search,
   ShoppingBag,
+  Sparkles,
   Star,
   Trash2,
+  ArrowUp,
+  ArrowDown,
   Upload,
   Users,
   X,
@@ -89,7 +92,7 @@ type ReviewRow = Tables<"reviews"> & {
   profile?: Pick<ProfileRow, "name" | "email"> | null;
 };
 
-type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes" | "hero" | "pagos";
+type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes" | "hero" | "pagos" | "apariencia";
 
 type ProductForm = {
   id?: string;
@@ -117,6 +120,7 @@ const navItems: Array<{ key: SectionKey; to: string; label: string; icon: Compon
   { key: "mensajes", to: "/admin/mensajes", label: "Mensajes", icon: Mail },
   { key: "hero", to: "/admin/hero", label: "Hero", icon: ImageIcon },
   { key: "pagos", to: "/admin/pagos", label: "Pagos & Envíos", icon: CreditCard },
+  { key: "apariencia", to: "/admin/apariencia", label: "Apariencia", icon: Sparkles },
 ];
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -210,6 +214,7 @@ const AdminStub = () => {
           {section === "mensajes" && <MessagesSection />}
           {section === "hero" && <HeroSettingsSection />}
           {section === "pagos" && <PaymentSettingsSection />}
+          {section === "apariencia" && <AppearanceSection />}
           {(section === "dashboard" || !navItems.some((item) => item.key === section)) && <DashboardSection />}
         </div>
       </main>
@@ -784,93 +789,361 @@ const ToggleRow = ({ label, checked, onChange }: { label: string; checked: boole
   </div>
 );
 
+type CategoryWithCount = CategoryRow & { product_count: number };
+
+type CategoryForm = {
+  id?: string;
+  name: string;
+  slug: string;
+  description: string;
+  image_url: string | null;
+  active: boolean;
+};
+
+const emptyCategoryForm: CategoryForm = {
+  name: "",
+  slug: "",
+  description: "",
+  image_url: null,
+  active: true,
+};
+
 const CategoriesSection = () => {
   const queryClient = useQueryClient();
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ["admin-categories-full"],
-    queryFn: async () => {
+    queryFn: async (): Promise<CategoryWithCount[]> => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id, name, slug, image_url, active, order")
+        .select("id, name, slug, description, image_url, active, order, created_at, updated_at")
         .order("order", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as CategoryRow[];
+      const cats = (data ?? []) as CategoryRow[];
+      const { data: products, error: pErr } = await supabase
+        .from("products")
+        .select("category_id");
+      if (pErr) throw pErr;
+      const counts = new Map<string, number>();
+      (products ?? []).forEach((p) => {
+        if (!p.category_id) return;
+        counts.set(p.category_id, (counts.get(p.category_id) ?? 0) + 1);
+      });
+      return cats.map((c) => ({ ...c, product_count: counts.get(c.id) ?? 0 }));
     },
   });
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
-  const updateImage = async (category: CategoryRow, file: File) => {
-    setUploadingId(category.id);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [form, setForm] = useState<CategoryForm>(emptyCategoryForm);
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const openNew = () => {
+    setForm(emptyCategoryForm);
+    setSlugTouched(false);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (cat: CategoryRow) => {
+    setForm({
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug,
+      description: cat.description ?? "",
+      image_url: cat.image_url,
+      active: cat.active,
+    });
+    setSlugTouched(true);
+    setDrawerOpen(true);
+  };
+
+  const uploadImage = async (file: File) => {
+    setUploading(true);
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `categories/${category.slug}-${Date.now()}.${ext}`;
+      const slug = form.slug || slugify(form.name) || "categoria";
+      const path = `categories/${slug}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("product-images")
         .upload(path, file, { contentType: file.type, upsert: true });
       if (upErr) throw upErr;
       const { data } = supabase.storage.from("product-images").getPublicUrl(path);
-      const { error: dbErr } = await supabase
-        .from("categories")
-        .update({ image_url: data.publicUrl })
-        .eq("id", category.id);
-      if (dbErr) throw dbErr;
-      // remove old image if it lived in our bucket
-      if (category.image_url) {
-        const oldPath = imagePathFromPublicUrl(category.image_url);
-        if (oldPath && oldPath !== path) {
-          await supabase.storage.from("product-images").remove([oldPath]);
-        }
-      }
-      toast.success("Imagen actualizada");
-      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
-      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+      setForm((f) => ({ ...f, image_url: data.publicUrl }));
+      toast.success("Imagen lista");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo subir la imagen");
     } finally {
-      setUploadingId(null);
+      setUploading(false);
     }
   };
 
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const name = form.name.trim();
+      if (!name) throw new Error("El nombre es obligatorio");
+      const slug = (form.slug.trim() || slugify(name));
+      const payload = {
+        name,
+        slug,
+        description: form.description.trim() || null,
+        image_url: form.image_url,
+        active: form.active,
+      };
+      if (form.id) {
+        const { error } = await supabase.from("categories").update(payload).eq("id", form.id);
+        if (error) throw error;
+      } else {
+        const maxOrder = categories.reduce((m, c) => Math.max(m, c.order ?? 0), 0);
+        const { error } = await supabase.from("categories").insert({ ...payload, order: maxOrder + 1 });
+        if (error) throw error;
+      }
+    },
+    onSuccess: async () => {
+      toast.success(form.id ? "Categoría actualizada" : "Categoría creada");
+      setDrawerOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "No se pudo guardar"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (cat: CategoryWithCount) => {
+      if (cat.product_count > 0) {
+        throw new Error(`Tiene ${cat.product_count} producto(s) asociado(s). Reubícalos antes de eliminar.`);
+      }
+      const { error } = await supabase.from("categories").delete().eq("id", cat.id);
+      if (error) throw error;
+      if (cat.image_url) {
+        const oldPath = imagePathFromPublicUrl(cat.image_url);
+        if (oldPath) await supabase.storage.from("product-images").remove([oldPath]);
+      }
+    },
+    onSuccess: async () => {
+      toast.success("Categoría eliminada");
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "No se pudo eliminar"),
+  });
+
+  const toggleActive = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("categories").update({ active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+
+  const moveMutation = useMutation({
+    mutationFn: async ({ index, direction }: { index: number; direction: -1 | 1 }) => {
+      const target = index + direction;
+      if (target < 0 || target >= categories.length) return;
+      const a = categories[index];
+      const b = categories[target];
+      const aOrder = a.order ?? index;
+      const bOrder = b.order ?? target;
+      const { error: e1 } = await supabase.from("categories").update({ order: bOrder }).eq("id", a.id);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.from("categories").update({ order: aOrder }).eq("id", b.id);
+      if (e2) throw e2;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+
   return (
     <section>
-      <PageHeader eyebrow="Categorías" title="Imágenes de categorías" />
+      <PageHeader
+        eyebrow="Categorías"
+        title="Gestión de categorías"
+        action={
+          <Button onClick={openNew} className="bg-primary hover:bg-primary/90">
+            <Plus className="mr-2 h-4 w-4" /> Nueva categoría
+          </Button>
+        }
+      />
       {isLoading ? (
         <LoadingPanel />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((cat) => (
-            <div key={cat.id} className="rounded-md border border-subtle bg-surface overflow-hidden">
-              <div className="aspect-video bg-surface-elevated overflow-hidden">
-                {cat.image_url ? (
-                  <img src={cat.image_url} alt={cat.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">Sin imagen</div>
-                )}
-              </div>
-              <div className="p-4 flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-display font-bold">{cat.name}</p>
-                  <p className="text-xs text-muted-foreground">/{cat.slug}</p>
-                </div>
-                <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90">
-                  {uploadingId === cat.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                  Cambiar
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) updateImage(cat, file);
-                      event.target.value = "";
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-          ))}
-        </div>
+        <DataPanel title={`Categorías (${categories.length})`}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-20">Orden</TableHead>
+                <TableHead>Imagen</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Productos</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {categories.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    No hay categorías. Crea la primera.
+                  </TableCell>
+                </TableRow>
+              )}
+              {categories.map((cat, idx) => (
+                <TableRow key={cat.id}>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-6 w-6 border-subtle"
+                        disabled={idx === 0 || moveMutation.isPending}
+                        onClick={() => moveMutation.mutate({ index: idx, direction: -1 })}
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-6 w-6 border-subtle"
+                        disabled={idx === categories.length - 1 || moveMutation.isPending}
+                        onClick={() => moveMutation.mutate({ index: idx, direction: 1 })}
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {cat.image_url ? (
+                      <img src={cat.image_url} alt={cat.name} className="h-12 w-16 rounded object-cover" />
+                    ) : (
+                      <div className="h-12 w-16 rounded bg-surface-elevated text-[10px] flex items-center justify-center text-muted-foreground">Sin img</div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium">{cat.name}</p>
+                    <p className="text-xs text-muted-foreground">/{cat.slug}</p>
+                  </TableCell>
+                  <TableCell>{cat.product_count}</TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={cat.active}
+                      onCheckedChange={(v) => toggleActive.mutate({ id: cat.id, active: v })}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="outline" className="border-subtle" onClick={() => openEdit(cat)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás segura?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {cat.product_count > 0
+                                ? `Esta categoría tiene ${cat.product_count} producto(s) asociado(s). Debes reubicarlos antes de eliminarla.`
+                                : `Se eliminará "${cat.name}" de forma permanente.`}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              disabled={cat.product_count > 0}
+                              onClick={() => deleteMutation.mutate(cat)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DataPanel>
       )}
+
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <SheetContent className="w-full overflow-y-auto border-subtle bg-surface sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{form.id ? "Editar categoría" : "Nueva categoría"}</SheetTitle>
+            <SheetDescription>Datos visibles en la tienda y en el inicio.</SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-5">
+            <FormField label="Nombre">
+              <Input
+                value={form.name}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setForm((f) => ({ ...f, name, slug: slugTouched ? f.slug : slugify(name) }));
+                }}
+                className="bg-surface-elevated border-subtle"
+              />
+            </FormField>
+            <FormField label="Slug (URL)">
+              <Input
+                value={form.slug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setForm((f) => ({ ...f, slug: slugify(e.target.value) }));
+                }}
+                className="bg-surface-elevated border-subtle"
+              />
+            </FormField>
+            <FormField label="Descripción">
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                className="bg-surface-elevated border-subtle min-h-[90px]"
+              />
+            </FormField>
+            <FormField label="Imagen">
+              {form.image_url && (
+                <img src={form.image_url} alt="" className="h-32 w-full rounded-md object-cover mb-2" />
+              )}
+              <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {form.image_url ? "Cambiar imagen" : "Subir imagen"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadImage(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </FormField>
+            <div className="flex items-center justify-between rounded-md border border-subtle p-3">
+              <div>
+                <Label>Activa</Label>
+                <p className="text-xs text-muted-foreground">Visible en la tienda y el inicio.</p>
+              </div>
+              <Switch checked={form.active} onCheckedChange={(v) => setForm((f) => ({ ...f, active: v }))} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" className="border-subtle" onClick={() => setDrawerOpen(false)}>Cancelar</Button>
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="bg-primary hover:bg-primary/90">
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar"}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </section>
   );
 };
@@ -1058,13 +1331,39 @@ const HeroSettingsSection = () => {
   );
 };
 
+type PaymentMethod = "wompi_full" | "cash_on_delivery" | "wompi_shipping_cod_product";
+type PaymentFilter = "all" | PaymentMethod;
+
+const paymentMethodMeta: Record<PaymentMethod, { label: string; className: string }> = {
+  wompi_full: {
+    label: "🟢 Pagado con Wompi",
+    className: "border-success/30 bg-success/15 text-success",
+  },
+  cash_on_delivery: {
+    label: "🟡 Contraentrega - Cali",
+    className: "border-warning/30 bg-warning/15 text-warning",
+  },
+  wompi_shipping_cod_product: {
+    label: "🟠 Contraentrega - Nacional",
+    className: "border-info/30 bg-info/15 text-info",
+  },
+};
+
+const PaymentMethodBadge = ({ method }: { method: string | null | undefined }) => {
+  const meta = method && (paymentMethodMeta as Record<string, { label: string; className: string }>)[method];
+  if (!meta) {
+    return <Badge variant="outline" className="border-subtle text-muted-foreground">Sin método</Badge>;
+  }
+  return <Badge variant="outline" className={cn("whitespace-nowrap", meta.className)}>{meta.label}</Badge>;
+};
+
 const OrdersSection = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-orders"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, order_number, user_id, guest_email, status, subtotal, shipping_cost, total, tracking_number, notes, created_at, updated_at, order_addresses(*)")
+        .select("id, order_number, user_id, guest_email, status, subtotal, shipping_cost, total, amount_paid_online, amount_due_on_delivery, payment_method, payment_status, payment_reference, payment_environment, tracking_number, notes, created_at, updated_at, order_addresses(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as OrderRow[];
@@ -1072,6 +1371,7 @@ const OrdersSection = () => {
   });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<OrderStatus | "all">("all");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
   const [selected, setSelected] = useState<OrderRow | null>(null);
 
   const filtered = useMemo(() => {
@@ -1079,15 +1379,16 @@ const OrdersSection = () => {
     return orders.filter((order) => {
       const address = getOrderAddress(order);
       const matchesStatus = status === "all" || order.status === status;
+      const matchesPayment = paymentFilter === "all" || order.payment_method === paymentFilter;
       const matchesQuery = !q || order.order_number.toLowerCase().includes(q) || (address?.email ?? order.guest_email ?? "").toLowerCase().includes(q);
-      return matchesStatus && matchesQuery;
+      return matchesStatus && matchesPayment && matchesQuery;
     });
-  }, [orders, search, status]);
+  }, [orders, search, status, paymentFilter]);
 
   return (
     <section>
       <PageHeader eyebrow="Pedidos" title="Gestión de pedidos" />
-      <div className="mb-5 grid gap-3 md:grid-cols-[1fr_220px]">
+      <div className="mb-5 grid gap-3 md:grid-cols-[1fr_220px_220px]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por orden o email…" className="bg-surface pl-10 border-subtle" />
@@ -1099,6 +1400,15 @@ const OrdersSection = () => {
             {Object.entries(statusLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={paymentFilter} onValueChange={(value) => setPaymentFilter(value as PaymentFilter)}>
+          <SelectTrigger className="bg-surface border-subtle"><SelectValue placeholder="Método de pago" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los métodos</SelectItem>
+            <SelectItem value="wompi_full">🟢 Pagado con Wompi</SelectItem>
+            <SelectItem value="cash_on_delivery">🟡 Contraentrega - Cali</SelectItem>
+            <SelectItem value="wompi_shipping_cod_product">🟠 Contraentrega - Nacional</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       {isLoading ? <LoadingPanel /> : (
         <DataPanel title="Pedidos">
@@ -1107,7 +1417,7 @@ const OrdersSection = () => {
               <TableRow>
                 <TableHead>Orden</TableHead>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Método de pago</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Estado</TableHead>
@@ -1119,8 +1429,13 @@ const OrdersSection = () => {
                 return (
                   <TableRow key={order.id} className="cursor-pointer" onClick={() => setSelected(order)}>
                     <TableCell className="font-medium">{order.order_number}</TableCell>
-                    <TableCell>{address?.full_name ?? (order.user_id ? "Cliente" : "Invitado")}</TableCell>
-                    <TableCell>{address?.email ?? order.guest_email ?? "—"}</TableCell>
+                    <TableCell>
+                      <div className="leading-tight">
+                        <p>{address?.full_name ?? (order.user_id ? "Cliente" : "Invitado")}</p>
+                        <p className="text-xs text-muted-foreground">{address?.email ?? order.guest_email ?? "—"}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell><PaymentMethodBadge method={order.payment_method} /></TableCell>
                     <TableCell className="text-muted-foreground">{formatShortDate(order.created_at)}</TableCell>
                     <TableCell>{formatPrice(toNumber(order.total))}</TableCell>
                     <TableCell><StatusBadge status={order.status} /></TableCell>
@@ -1177,17 +1492,53 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
   });
 
   const address = details.data?.address ?? (order ? getOrderAddress(order) : null);
+  const paidOnline = toNumber(order?.amount_paid_online);
+  const dueOnDelivery = toNumber(order?.amount_due_on_delivery);
+  const total = toNumber(order?.total);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto border-subtle bg-surface">
         <DialogHeader>
           <DialogTitle>Pedido {order?.order_number}</DialogTitle>
-          <DialogDescription>Detalle de productos, envío y estado del pedido.</DialogDescription>
+          <DialogDescription>Detalle de productos, envío, pagos y estado del pedido.</DialogDescription>
         </DialogHeader>
         {details.isLoading ? <LoadingPanel /> : (
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
             <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <PaymentMethodBadge method={order?.payment_method} />
+                {order?.payment_environment && (
+                  <Badge variant="outline" className="border-subtle text-muted-foreground capitalize">
+                    {order.payment_environment}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="rounded-md border border-subtle bg-background/40 p-4 text-sm">
+                <h3 className="mb-3 font-display font-bold normal-case">Desglose de pagos</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Valor pagado online</span>
+                    <span className="font-medium text-success">{formatPrice(paidOnline)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Valor a cobrar al entregar</span>
+                    <span className="font-medium text-warning">{formatPrice(dueOnDelivery)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-subtle pt-2">
+                    <span className="font-medium">Total del pedido</span>
+                    <span className="font-display font-bold">{formatPrice(total)}</span>
+                  </div>
+                  {order?.payment_reference && (
+                    <div className="flex justify-between border-t border-subtle pt-2 text-xs">
+                      <span className="text-muted-foreground">Referencia Wompi</span>
+                      <span className="font-mono">{order.payment_reference}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <h3 className="font-display font-bold normal-case">Productos comprados</h3>
               <div className="divide-y divide-subtle rounded-md border border-subtle bg-background/40">
                 {(details.data?.items ?? []).map((item) => (
@@ -1669,4 +2020,145 @@ const PaymentSettingsSection = () => {
   );
 };
 
+type BrandSettingsValue = {
+  logo_url: string | null;
+};
+
+const AppearanceSection = () => {
+  const queryClient = useQueryClient();
+  const { data: settings, isLoading } = useQuery({
+    queryKey: ["admin-brand-settings"],
+    queryFn: async (): Promise<BrandSettingsValue> => {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "brand")
+        .maybeSingle();
+      if (error) throw error;
+      const v = (data?.value ?? {}) as Partial<BrandSettingsValue>;
+      return { logo_url: v.logo_url ?? null };
+    },
+  });
+
+  const [draft, setDraft] = useState<BrandSettingsValue | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    if (settings && !draft) setDraft(settings);
+  }, [settings, draft]);
+
+  const current: BrandSettingsValue = draft ?? settings ?? { logo_url: null };
+
+  const handleUpload = async (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("La imagen excede 2MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+      const path = `brand/logo-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("product-images")
+        .upload(path, file, { contentType: file.type, upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("product-images").getPublicUrl(path);
+      setDraft({ logo_url: data.publicUrl });
+      toast.success("Logo cargado. Recuerda guardar.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo subir el logo");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "brand", value: current as unknown as Json }, { onConflict: "key" });
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      toast.success("Apariencia actualizada");
+      await queryClient.invalidateQueries({ queryKey: ["admin-brand-settings"] });
+      await queryClient.invalidateQueries({ queryKey: ["site-settings", "brand"] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Error al guardar"),
+  });
+
+  const removeLogo = () => setDraft({ logo_url: null });
+
+  if (isLoading || !draft) return <LoadingPanel />;
+
+  return (
+    <section>
+      <PageHeader
+        eyebrow="Configuración"
+        title="Apariencia"
+        action={
+          <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+            {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar cambios"}
+          </Button>
+        }
+      />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="space-y-5 rounded-md border border-subtle bg-surface p-6">
+          <h3 className="font-display text-lg font-bold">Logo de la tienda</h3>
+          <p className="text-sm text-muted-foreground">
+            Formatos JPG, PNG o SVG. Máximo 2MB. Reemplaza el logo en el navbar y en el sitio. Si lo eliminas, vuelve el logo de texto "BrrayLab".
+          </p>
+          <div className="rounded-md border border-subtle bg-background/40 p-6 flex items-center justify-center min-h-[120px]">
+            {current.logo_url ? (
+              <img src={current.logo_url} alt="Logo" className="max-h-20 w-auto object-contain" />
+            ) : (
+              <span className="text-sm text-muted-foreground">Sin logo cargado</span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              {current.logo_url ? "Cambiar logo" : "Subir logo"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleUpload(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {current.logo_url && (
+              <Button variant="outline" className="border-subtle" onClick={removeLogo}>
+                Quitar logo
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="rounded-md border border-subtle bg-surface overflow-hidden">
+          <div className="border-b border-subtle px-5 py-3 text-sm font-medium">Vista previa del navbar</div>
+          <div className="bg-background p-6 flex items-center justify-between">
+            {current.logo_url ? (
+              <img src={current.logo_url} alt="Logo preview" className="h-9 w-auto max-w-[180px] object-contain" />
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary">
+                  <span className="font-display text-base font-extrabold text-primary-foreground">B</span>
+                </span>
+                <span className="font-display text-lg font-extrabold tracking-tight">
+                  Brray<span className="text-primary-glow">Lab</span>
+                </span>
+              </div>
+            )}
+            <span className="text-xs text-muted-foreground">Inicio · Tienda · Contacto</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 export default AdminStub;
+
