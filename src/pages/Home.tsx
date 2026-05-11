@@ -18,7 +18,7 @@ const Home = () => {
   return (
     <>
       {/* HERO */}
-      <section className="relative isolate min-h-screen flex items-center overflow-hidden bg-background">
+      <section data-hero className="relative isolate min-h-screen flex items-center overflow-hidden bg-background">
         <div className="absolute inset-0 z-0">
           {heroType === "video" && hero?.video_url ? (
             <video
@@ -40,11 +40,20 @@ const Home = () => {
               height={1200}
             />
           ) : (
-            <img src={heroImg} alt="" className="h-full w-full object-cover opacity-90" width={1920} height={1200} />
+            <img
+              src={heroImg}
+              alt=""
+              className="h-full w-full object-cover opacity-90"
+              width={1920}
+              height={1200}
+            />
           )}
           {heroType !== "none" ? (
             <>
-              <div className="absolute inset-0 bg-black" style={{ opacity: overlayOpacity }} />
+              <div
+                className="absolute inset-0 bg-black"
+                style={{ opacity: overlayOpacity }}
+              />
               {/* light bottom fade for text legibility, no full background wash */}
               <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent" />
             </>
@@ -100,10 +109,7 @@ const Home = () => {
             <p className="text-xs uppercase tracking-widest text-primary-glow mb-2">Categorías</p>
             <h2 className="font-display font-extrabold text-3xl md:text-5xl">Encuentra lo tuyo</h2>
           </div>
-          <Link
-            to="/tienda"
-            className="text-sm text-muted-foreground hover:text-primary-glow transition-colors inline-flex items-center gap-1"
-          >
+          <Link to="/tienda" className="text-sm text-muted-foreground hover:text-primary-glow transition-colors inline-flex items-center gap-1">
             Ver todo <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
