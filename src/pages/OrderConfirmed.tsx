@@ -73,6 +73,38 @@ const OrderConfirmed = () => {
   }, [number, user?.id]);
 
   if (loading) return <section className="container py-24 text-center text-muted-foreground">Cargando pedido…</section>;
+
+  if (needsEmail && !order) {
+    return (
+      <section className="container py-20 max-w-md mx-auto text-center">
+        <h1 className="font-display font-extrabold text-2xl md:text-3xl mb-3">Confirma tu pedido</h1>
+        <p className="text-muted-foreground mb-6 text-sm">
+          Por seguridad, ingresa el correo con el que realizaste el pedido <span className="font-semibold text-foreground">{number}</span>.
+        </p>
+        <form
+          onSubmit={(e) => { e.preventDefault(); fetchOrder(emailInput.trim()); }}
+          className="space-y-3 text-left"
+        >
+          <input
+            type="email"
+            required
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            placeholder="tu@correo.com"
+            className="w-full h-11 px-4 rounded-lg bg-surface border border-subtle focus:outline-none focus:border-primary"
+          />
+          {emailError && <p className="text-sm text-destructive">{emailError}</p>}
+          <button
+            type="submit"
+            className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-colors"
+          >
+            Ver pedido
+          </button>
+        </form>
+      </section>
+    );
+  }
+
   if (notFound || !order) {
     return (
       <section className="container py-24 text-center">
