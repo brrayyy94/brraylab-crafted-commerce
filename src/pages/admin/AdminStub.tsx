@@ -789,93 +789,361 @@ const ToggleRow = ({ label, checked, onChange }: { label: string; checked: boole
   </div>
 );
 
+type CategoryWithCount = CategoryRow & { product_count: number };
+
+type CategoryForm = {
+  id?: string;
+  name: string;
+  slug: string;
+  description: string;
+  image_url: string | null;
+  active: boolean;
+};
+
+const emptyCategoryForm: CategoryForm = {
+  name: "",
+  slug: "",
+  description: "",
+  image_url: null,
+  active: true,
+};
+
 const CategoriesSection = () => {
   const queryClient = useQueryClient();
   const { data: categories = [], isLoading } = useQuery({
     queryKey: ["admin-categories-full"],
-    queryFn: async () => {
+    queryFn: async (): Promise<CategoryWithCount[]> => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id, name, slug, image_url, active, order")
+        .select("id, name, slug, description, image_url, active, order, created_at, updated_at")
         .order("order", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as CategoryRow[];
+      const cats = (data ?? []) as CategoryRow[];
+      const { data: products, error: pErr } = await supabase
+        .from("products")
+        .select("category_id");
+      if (pErr) throw pErr;
+      const counts = new Map<string, number>();
+      (products ?? []).forEach((p) => {
+        if (!p.category_id) return;
+        counts.set(p.category_id, (counts.get(p.category_id) ?? 0) + 1);
+      });
+      return cats.map((c) => ({ ...c, product_count: counts.get(c.id) ?? 0 }));
     },
   });
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
-  const updateImage = async (category: CategoryRow, file: File) => {
-    setUploadingId(category.id);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [form, setForm] = useState<CategoryForm>(emptyCategoryForm);
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const openNew = () => {
+    setForm(emptyCategoryForm);
+    setSlugTouched(false);
+    setDrawerOpen(true);
+  };
+
+  const openEdit = (cat: CategoryRow) => {
+    setForm({
+      id: cat.id,
+      name: cat.name,
+      slug: cat.slug,
+      description: cat.description ?? "",
+      image_url: cat.image_url,
+      active: cat.active,
+    });
+    setSlugTouched(true);
+    setDrawerOpen(true);
+  };
+
+  const uploadImage = async (file: File) => {
+    setUploading(true);
     try {
       const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `categories/${category.slug}-${Date.now()}.${ext}`;
+      const slug = form.slug || slugify(form.name) || "categoria";
+      const path = `categories/${slug}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("product-images")
         .upload(path, file, { contentType: file.type, upsert: true });
       if (upErr) throw upErr;
       const { data } = supabase.storage.from("product-images").getPublicUrl(path);
-      const { error: dbErr } = await supabase
-        .from("categories")
-        .update({ image_url: data.publicUrl })
-        .eq("id", category.id);
-      if (dbErr) throw dbErr;
-      // remove old image if it lived in our bucket
-      if (category.image_url) {
-        const oldPath = imagePathFromPublicUrl(category.image_url);
-        if (oldPath && oldPath !== path) {
-          await supabase.storage.from("product-images").remove([oldPath]);
-        }
-      }
-      toast.success("Imagen actualizada");
-      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
-      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+      setForm((f) => ({ ...f, image_url: data.publicUrl }));
+      toast.success("Imagen lista");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo subir la imagen");
     } finally {
-      setUploadingId(null);
+      setUploading(false);
     }
   };
 
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const name = form.name.trim();
+      if (!name) throw new Error("El nombre es obligatorio");
+      const slug = (form.slug.trim() || slugify(name));
+      const payload = {
+        name,
+        slug,
+        description: form.description.trim() || null,
+        image_url: form.image_url,
+        active: form.active,
+      };
+      if (form.id) {
+        const { error } = await supabase.from("categories").update(payload).eq("id", form.id);
+        if (error) throw error;
+      } else {
+        const maxOrder = categories.reduce((m, c) => Math.max(m, c.order ?? 0), 0);
+        const { error } = await supabase.from("categories").insert({ ...payload, order: maxOrder + 1 });
+        if (error) throw error;
+      }
+    },
+    onSuccess: async () => {
+      toast.success(form.id ? "Categoría actualizada" : "Categoría creada");
+      setDrawerOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "No se pudo guardar"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (cat: CategoryWithCount) => {
+      if (cat.product_count > 0) {
+        throw new Error(`Tiene ${cat.product_count} producto(s) asociado(s). Reubícalos antes de eliminar.`);
+      }
+      const { error } = await supabase.from("categories").delete().eq("id", cat.id);
+      if (error) throw error;
+      if (cat.image_url) {
+        const oldPath = imagePathFromPublicUrl(cat.image_url);
+        if (oldPath) await supabase.storage.from("product-images").remove([oldPath]);
+      }
+    },
+    onSuccess: async () => {
+      toast.success("Categoría eliminada");
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "No se pudo eliminar"),
+  });
+
+  const toggleActive = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("categories").update({ active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+
+  const moveMutation = useMutation({
+    mutationFn: async ({ index, direction }: { index: number; direction: -1 | 1 }) => {
+      const target = index + direction;
+      if (target < 0 || target >= categories.length) return;
+      const a = categories[index];
+      const b = categories[target];
+      const aOrder = a.order ?? index;
+      const bOrder = b.order ?? target;
+      const { error: e1 } = await supabase.from("categories").update({ order: bOrder }).eq("id", a.id);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.from("categories").update({ order: aOrder }).eq("id", b.id);
+      if (e2) throw e2;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["admin-categories-full"] });
+      await queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
+
   return (
     <section>
-      <PageHeader eyebrow="Categorías" title="Imágenes de categorías" />
+      <PageHeader
+        eyebrow="Categorías"
+        title="Gestión de categorías"
+        action={
+          <Button onClick={openNew} className="bg-primary hover:bg-primary/90">
+            <Plus className="mr-2 h-4 w-4" /> Nueva categoría
+          </Button>
+        }
+      />
       {isLoading ? (
         <LoadingPanel />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((cat) => (
-            <div key={cat.id} className="rounded-md border border-subtle bg-surface overflow-hidden">
-              <div className="aspect-video bg-surface-elevated overflow-hidden">
-                {cat.image_url ? (
-                  <img src={cat.image_url} alt={cat.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground">Sin imagen</div>
-                )}
-              </div>
-              <div className="p-4 flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-display font-bold">{cat.name}</p>
-                  <p className="text-xs text-muted-foreground">/{cat.slug}</p>
-                </div>
-                <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:bg-primary/90">
-                  {uploadingId === cat.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                  Cambiar
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="sr-only"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) updateImage(cat, file);
-                      event.target.value = "";
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-          ))}
-        </div>
+        <DataPanel title={`Categorías (${categories.length})`}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-20">Orden</TableHead>
+                <TableHead>Imagen</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Productos</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {categories.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                    No hay categorías. Crea la primera.
+                  </TableCell>
+                </TableRow>
+              )}
+              {categories.map((cat, idx) => (
+                <TableRow key={cat.id}>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-6 w-6 border-subtle"
+                        disabled={idx === 0 || moveMutation.isPending}
+                        onClick={() => moveMutation.mutate({ index: idx, direction: -1 })}
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-6 w-6 border-subtle"
+                        disabled={idx === categories.length - 1 || moveMutation.isPending}
+                        onClick={() => moveMutation.mutate({ index: idx, direction: 1 })}
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {cat.image_url ? (
+                      <img src={cat.image_url} alt={cat.name} className="h-12 w-16 rounded object-cover" />
+                    ) : (
+                      <div className="h-12 w-16 rounded bg-surface-elevated text-[10px] flex items-center justify-center text-muted-foreground">Sin img</div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <p className="font-medium">{cat.name}</p>
+                    <p className="text-xs text-muted-foreground">/{cat.slug}</p>
+                  </TableCell>
+                  <TableCell>{cat.product_count}</TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={cat.active}
+                      onCheckedChange={(v) => toggleActive.mutate({ id: cat.id, active: v })}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="outline" className="border-subtle" onClick={() => openEdit(cat)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20">
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás segura?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {cat.product_count > 0
+                                ? `Esta categoría tiene ${cat.product_count} producto(s) asociado(s). Debes reubicarlos antes de eliminarla.`
+                                : `Se eliminará "${cat.name}" de forma permanente.`}
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                              disabled={cat.product_count > 0}
+                              onClick={() => deleteMutation.mutate(cat)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DataPanel>
       )}
+
+      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <SheetContent className="w-full overflow-y-auto border-subtle bg-surface sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>{form.id ? "Editar categoría" : "Nueva categoría"}</SheetTitle>
+            <SheetDescription>Datos visibles en la tienda y en el inicio.</SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-5">
+            <FormField label="Nombre">
+              <Input
+                value={form.name}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setForm((f) => ({ ...f, name, slug: slugTouched ? f.slug : slugify(name) }));
+                }}
+                className="bg-surface-elevated border-subtle"
+              />
+            </FormField>
+            <FormField label="Slug (URL)">
+              <Input
+                value={form.slug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setForm((f) => ({ ...f, slug: slugify(e.target.value) }));
+                }}
+                className="bg-surface-elevated border-subtle"
+              />
+            </FormField>
+            <FormField label="Descripción">
+              <Textarea
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                className="bg-surface-elevated border-subtle min-h-[90px]"
+              />
+            </FormField>
+            <FormField label="Imagen">
+              {form.image_url && (
+                <img src={form.image_url} alt="" className="h-32 w-full rounded-md object-cover mb-2" />
+              )}
+              <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {form.image_url ? "Cambiar imagen" : "Subir imagen"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadImage(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </FormField>
+            <div className="flex items-center justify-between rounded-md border border-subtle p-3">
+              <div>
+                <Label>Activa</Label>
+                <p className="text-xs text-muted-foreground">Visible en la tienda y el inicio.</p>
+              </div>
+              <Switch checked={form.active} onCheckedChange={(v) => setForm((f) => ({ ...f, active: v }))} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" className="border-subtle" onClick={() => setDrawerOpen(false)}>Cancelar</Button>
+              <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="bg-primary hover:bg-primary/90">
+                {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Guardar"}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </section>
   );
 };
