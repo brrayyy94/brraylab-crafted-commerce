@@ -507,6 +507,7 @@ export type Database = {
     }
     Functions: {
       _send_email_internal_secret: { Args: never; Returns: string }
+      _send_email_internal_secret_admin: { Args: never; Returns: string }
       get_order_for_confirmation: {
         Args: { _email?: string; _order_number: string }
         Returns: Json
@@ -517,6 +518,19 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      place_order: {
+        Args: {
+          _address: Json
+          _guest_email?: string
+          _items: Json
+          _payment_choice: string
+        }
+        Returns: {
+          amount_paid_online: number
+          id: string
+          order_number: string
+        }[]
       }
     }
     Enums: {

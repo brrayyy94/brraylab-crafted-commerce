@@ -25,23 +25,48 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   try {
-    const { orderId, currency = "COP" } = await req.json();
+    const { orderId, currency = "COP", guestEmail } = await req.json();
     if (!orderId || typeof orderId !== "string") {
       return json({ error: "orderId inválido" }, 400);
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // SECURITY: read the authoritative amount from DB; ignore any client-supplied amount.
+    // Identify caller (if authenticated)
+    let callerId: string | null = null;
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.toLowerCase().startsWith("bearer ")
+      ? authHeader.slice(7).trim()
+      : "";
+    if (token && token !== ANON_KEY) {
+      const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+      });
+      const { data: u } = await userClient.auth.getUser();
+      callerId = u?.user?.id ?? null;
+    }
+
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
     const { data: order, error: orderErr } = await supabase
       .from("orders")
-      .select("id, order_number, amount_paid_online, payment_status")
+      .select("id, order_number, amount_paid_online, payment_status, user_id, guest_email")
       .eq("id", orderId)
       .maybeSingle();
     if (orderErr || !order) return json({ error: "Pedido no encontrado" }, 404);
+
+    // SECURITY: enforce ownership — caller must own the order or match guest email.
+    const isOwner = callerId && order.user_id === callerId;
+    const isGuestMatch =
+      !order.user_id &&
+      typeof guestEmail === "string" &&
+      order.guest_email &&
+      guestEmail.trim().toLowerCase() === String(order.guest_email).toLowerCase();
+    if (!isOwner && !isGuestMatch) {
+      return json({ error: "No autorizado" }, 403);
+    }
 
     const dbAmount = Number(order.amount_paid_online);
     if (!Number.isFinite(dbAmount) || dbAmount <= 0) {
@@ -55,19 +80,10 @@ Deno.serve(async (req) => {
     if (!integritySecret) return json({ error: "WOMPI_INTEGRITY_SECRET no configurado" }, 500);
 
     const reference = String(order.order_number).trim();
-    const amount = Math.round(dbAmount * 100); // centavos, autoritativo desde la BD
-    const curr = String(currency).trim().toUpperCase(); // "COP"
-    // Wompi: SHA256(reference + amountInCents + currency + integritySecret)
+    const amount = Math.round(dbAmount * 100);
+    const curr = String(currency).trim().toUpperCase();
     const concatenated = `${reference}${amount}${curr}${integritySecret}`;
     const signature = await sha256Hex(concatenated);
-
-    console.log("[wompi-create-transaction] signing", {
-      reference,
-      amount,
-      currency: curr,
-      integritySecretLength: integritySecret.length,
-      signaturePreview: `${signature.slice(0, 8)}…${signature.slice(-6)}`,
-    });
 
     await supabase
       .from("orders")
