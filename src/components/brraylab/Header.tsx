@@ -43,7 +43,7 @@ export const Header = () => {
     <header
       className={cn(
         "fixed top-0 inset-x-0 z-50 transition-all duration-500",
-        scrolled || open ? "bg-black/80 backdrop-blur-xl border-b border-white/10" : "bg-transparent",
+        scrolled || open ? "bg-background/85 backdrop-blur-xl border-b border-subtle" : "bg-transparent",
       )}
     >
       <div className="container flex h-16 items-center justify-between gap-6">
