@@ -97,6 +97,16 @@ function formatAddress(addr: any) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // SECURITY: only callers with the internal secret may invoke this function.
+  const INTERNAL_SECRET = (Deno.env.get("SEND_EMAIL_INTERNAL_SECRET") ?? "").trim();
+  const provided = (req.headers.get("x-internal-secret") ?? "").trim();
+  if (!INTERNAL_SECRET || provided !== INTERNAL_SECRET) {
+    return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     const { type, order_number, name, email } = await req.json();
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
