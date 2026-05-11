@@ -9,16 +9,38 @@ const Contact = () => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+    const name = form.name.trim();
+    const email = form.email.trim();
+    const phone = form.phone.trim();
+    const message = form.message.trim();
+
+    if (!name || !email || !message) {
       toast.error("Completa los campos requeridos");
       return;
     }
+    if (name.length > 100) {
+      toast.error("El nombre no puede superar 100 caracteres");
+      return;
+    }
+    if (email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      toast.error("Ingresa un email válido");
+      return;
+    }
+    if (phone && phone.length > 30) {
+      toast.error("El teléfono no puede superar 30 caracteres");
+      return;
+    }
+    if (message.length > 2000) {
+      toast.error("El mensaje no puede superar 2000 caracteres");
+      return;
+    }
+
     setSending(true);
     const { error } = await supabase.from("contact_messages").insert({
-      name: form.name.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim() || null,
-      message: form.message.trim(),
+      name,
+      email,
+      phone: phone || null,
+      message,
     });
     setSending(false);
     if (error) {
@@ -46,6 +68,7 @@ const Contact = () => {
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
+              maxLength={100}
               className="w-full h-11 px-3 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30 transition-all"
               placeholder="Tu nombre"
             />
@@ -56,6 +79,7 @@ const Contact = () => {
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
+              maxLength={254}
               className="w-full h-11 px-3 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30 transition-all"
               placeholder="tucorreo@dominio.com"
             />
@@ -66,6 +90,7 @@ const Contact = () => {
               type="tel"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              maxLength={30}
               className="w-full h-11 px-3 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30 transition-all"
               placeholder="+57 ..."
             />
@@ -76,6 +101,7 @@ const Contact = () => {
               value={form.message}
               onChange={(e) => setForm({ ...form, message: e.target.value })}
               rows={5}
+              maxLength={2000}
               className="w-full px-3 py-3 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30 transition-all resize-none"
               placeholder="¿En qué podemos ayudarte?"
             />
