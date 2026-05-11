@@ -9,15 +9,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const schema = z.object({
-  name: z.string().trim().min(2, "Mínimo 2 caracteres").max(80),
-  email: z.string().trim().email("Email inválido").max(255),
-  phone: z.string().trim().min(7, "Teléfono inválido").max(20).optional().or(z.literal("")),
-  password: z.string().min(8, "Mínimo 8 caracteres").max(72),
-});
+const schema = z
+  .object({
+    name: z.string().trim().min(2, "Mínimo 2 caracteres").max(80),
+    email: z.string().trim().email("Email inválido").max(255),
+    phone: z.string().trim().min(7, "Teléfono inválido").max(20).optional().or(z.literal("")),
+    password: z.string().min(8, "Mínimo 8 caracteres").max(72),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  });
 
 const Register = () => {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -28,13 +35,19 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      setConfirmError("Las contraseñas no coinciden");
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+    setConfirmError(null);
     const parsed = schema.safeParse(form);
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
@@ -47,7 +60,17 @@ const Register = () => {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      const msg = error.message?.toLowerCase() ?? "";
+      if (msg.includes("registered") || msg.includes("exists") || msg.includes("already")) {
+        toast.error("Este correo ya está registrado. ¿Quieres iniciar sesión?");
+      } else {
+        toast.error(error.message);
+      }
+      return;
+    }
+    // Supabase returns a user with empty identities array when the email already exists
+    if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+      toast.error("Este correo ya está registrado. ¿Quieres iniciar sesión?");
       return;
     }
     setSubmitted(true);
@@ -161,6 +184,25 @@ const Register = () => {
               required
             />
             <p className="text-xs text-muted-foreground mt-1">Mínimo 8 caracteres.</p>
+          </div>
+          <div>
+            <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              value={form.confirmPassword}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm({ ...form, confirmPassword: v });
+                setConfirmError(v && v !== form.password ? "Las contraseñas no coinciden" : null);
+              }}
+              className="bg-surface-elevated border-subtle mt-1.5"
+              required
+            />
+            {confirmError && (
+              <p className="text-xs text-destructive mt-1">{confirmError}</p>
+            )}
           </div>
           <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Crear cuenta"}
