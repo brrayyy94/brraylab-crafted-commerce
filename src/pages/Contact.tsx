@@ -9,16 +9,38 @@ const Contact = () => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+    const name = form.name.trim();
+    const email = form.email.trim();
+    const phone = form.phone.trim();
+    const message = form.message.trim();
+
+    if (!name || !email || !message) {
       toast.error("Completa los campos requeridos");
       return;
     }
+    if (name.length > 100) {
+      toast.error("El nombre no puede superar 100 caracteres");
+      return;
+    }
+    if (email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      toast.error("Ingresa un email válido");
+      return;
+    }
+    if (phone && phone.length > 30) {
+      toast.error("El teléfono no puede superar 30 caracteres");
+      return;
+    }
+    if (message.length > 2000) {
+      toast.error("El mensaje no puede superar 2000 caracteres");
+      return;
+    }
+
     setSending(true);
     const { error } = await supabase.from("contact_messages").insert({
-      name: form.name.trim(),
-      email: form.email.trim(),
-      phone: form.phone.trim() || null,
-      message: form.message.trim(),
+      name,
+      email,
+      phone: phone || null,
+      message,
     });
     setSending(false);
     if (error) {
