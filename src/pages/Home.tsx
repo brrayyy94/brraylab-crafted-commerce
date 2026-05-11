@@ -18,7 +18,7 @@ const Home = () => {
   return (
     <>
       {/* HERO */}
-      <section data-hero className="relative isolate min-h-screen flex items-center overflow-hidden bg-transparent">
+      <section data-hero className="relative isolate min-h-svh flex items-center overflow-hidden bg-black -mt-16">
         <div className="absolute inset-0 z-0">
           {heroType === "video" && hero?.video_url ? (
             <video
