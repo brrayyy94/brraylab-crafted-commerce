@@ -1331,13 +1331,39 @@ const HeroSettingsSection = () => {
   );
 };
 
+type PaymentMethod = "wompi_full" | "cash_on_delivery" | "wompi_shipping_cod_product";
+type PaymentFilter = "all" | PaymentMethod;
+
+const paymentMethodMeta: Record<PaymentMethod, { label: string; className: string }> = {
+  wompi_full: {
+    label: "🟢 Pagado con Wompi",
+    className: "border-success/30 bg-success/15 text-success",
+  },
+  cash_on_delivery: {
+    label: "🟡 Contraentrega - Cali",
+    className: "border-warning/30 bg-warning/15 text-warning",
+  },
+  wompi_shipping_cod_product: {
+    label: "🟠 Contraentrega - Nacional",
+    className: "border-info/30 bg-info/15 text-info",
+  },
+};
+
+const PaymentMethodBadge = ({ method }: { method: string | null | undefined }) => {
+  const meta = method && (paymentMethodMeta as Record<string, { label: string; className: string }>)[method];
+  if (!meta) {
+    return <Badge variant="outline" className="border-subtle text-muted-foreground">Sin método</Badge>;
+  }
+  return <Badge variant="outline" className={cn("whitespace-nowrap", meta.className)}>{meta.label}</Badge>;
+};
+
 const OrdersSection = () => {
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ["admin-orders"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select("id, order_number, user_id, guest_email, status, subtotal, shipping_cost, total, tracking_number, notes, created_at, updated_at, order_addresses(*)")
+        .select("id, order_number, user_id, guest_email, status, subtotal, shipping_cost, total, amount_paid_online, amount_due_on_delivery, payment_method, payment_status, payment_reference, payment_environment, tracking_number, notes, created_at, updated_at, order_addresses(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as OrderRow[];
@@ -1345,6 +1371,7 @@ const OrdersSection = () => {
   });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<OrderStatus | "all">("all");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("all");
   const [selected, setSelected] = useState<OrderRow | null>(null);
 
   const filtered = useMemo(() => {
@@ -1352,15 +1379,16 @@ const OrdersSection = () => {
     return orders.filter((order) => {
       const address = getOrderAddress(order);
       const matchesStatus = status === "all" || order.status === status;
+      const matchesPayment = paymentFilter === "all" || order.payment_method === paymentFilter;
       const matchesQuery = !q || order.order_number.toLowerCase().includes(q) || (address?.email ?? order.guest_email ?? "").toLowerCase().includes(q);
-      return matchesStatus && matchesQuery;
+      return matchesStatus && matchesPayment && matchesQuery;
     });
-  }, [orders, search, status]);
+  }, [orders, search, status, paymentFilter]);
 
   return (
     <section>
       <PageHeader eyebrow="Pedidos" title="Gestión de pedidos" />
-      <div className="mb-5 grid gap-3 md:grid-cols-[1fr_220px]">
+      <div className="mb-5 grid gap-3 md:grid-cols-[1fr_220px_220px]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por orden o email…" className="bg-surface pl-10 border-subtle" />
@@ -1372,6 +1400,15 @@ const OrdersSection = () => {
             {Object.entries(statusLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={paymentFilter} onValueChange={(value) => setPaymentFilter(value as PaymentFilter)}>
+          <SelectTrigger className="bg-surface border-subtle"><SelectValue placeholder="Método de pago" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los métodos</SelectItem>
+            <SelectItem value="wompi_full">🟢 Pagado con Wompi</SelectItem>
+            <SelectItem value="cash_on_delivery">🟡 Contraentrega - Cali</SelectItem>
+            <SelectItem value="wompi_shipping_cod_product">🟠 Contraentrega - Nacional</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       {isLoading ? <LoadingPanel /> : (
         <DataPanel title="Pedidos">
@@ -1380,7 +1417,7 @@ const OrdersSection = () => {
               <TableRow>
                 <TableHead>Orden</TableHead>
                 <TableHead>Cliente</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Método de pago</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Estado</TableHead>
@@ -1392,8 +1429,13 @@ const OrdersSection = () => {
                 return (
                   <TableRow key={order.id} className="cursor-pointer" onClick={() => setSelected(order)}>
                     <TableCell className="font-medium">{order.order_number}</TableCell>
-                    <TableCell>{address?.full_name ?? (order.user_id ? "Cliente" : "Invitado")}</TableCell>
-                    <TableCell>{address?.email ?? order.guest_email ?? "—"}</TableCell>
+                    <TableCell>
+                      <div className="leading-tight">
+                        <p>{address?.full_name ?? (order.user_id ? "Cliente" : "Invitado")}</p>
+                        <p className="text-xs text-muted-foreground">{address?.email ?? order.guest_email ?? "—"}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell><PaymentMethodBadge method={order.payment_method} /></TableCell>
                     <TableCell className="text-muted-foreground">{formatShortDate(order.created_at)}</TableCell>
                     <TableCell>{formatPrice(toNumber(order.total))}</TableCell>
                     <TableCell><StatusBadge status={order.status} /></TableCell>
@@ -1450,17 +1492,53 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
   });
 
   const address = details.data?.address ?? (order ? getOrderAddress(order) : null);
+  const paidOnline = toNumber(order?.amount_paid_online);
+  const dueOnDelivery = toNumber(order?.amount_due_on_delivery);
+  const total = toNumber(order?.total);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto border-subtle bg-surface">
         <DialogHeader>
           <DialogTitle>Pedido {order?.order_number}</DialogTitle>
-          <DialogDescription>Detalle de productos, envío y estado del pedido.</DialogDescription>
+          <DialogDescription>Detalle de productos, envío, pagos y estado del pedido.</DialogDescription>
         </DialogHeader>
         {details.isLoading ? <LoadingPanel /> : (
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
             <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <PaymentMethodBadge method={order?.payment_method} />
+                {order?.payment_environment && (
+                  <Badge variant="outline" className="border-subtle text-muted-foreground capitalize">
+                    {order.payment_environment}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="rounded-md border border-subtle bg-background/40 p-4 text-sm">
+                <h3 className="mb-3 font-display font-bold normal-case">Desglose de pagos</h3>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Valor pagado online</span>
+                    <span className="font-medium text-success">{formatPrice(paidOnline)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Valor a cobrar al entregar</span>
+                    <span className="font-medium text-warning">{formatPrice(dueOnDelivery)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-subtle pt-2">
+                    <span className="font-medium">Total del pedido</span>
+                    <span className="font-display font-bold">{formatPrice(total)}</span>
+                  </div>
+                  {order?.payment_reference && (
+                    <div className="flex justify-between border-t border-subtle pt-2 text-xs">
+                      <span className="text-muted-foreground">Referencia Wompi</span>
+                      <span className="font-mono">{order.payment_reference}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <h3 className="font-display font-bold normal-case">Productos comprados</h3>
               <div className="divide-y divide-subtle rounded-md border border-subtle bg-background/40">
                 {(details.data?.items ?? []).map((item) => (
