@@ -506,6 +506,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _send_email_internal_secret: { Args: never; Returns: string }
       get_order_for_confirmation: {
         Args: { _email?: string; _order_number: string }
         Returns: Json
