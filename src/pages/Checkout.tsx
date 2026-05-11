@@ -201,7 +201,11 @@ const Checkout = () => {
         }
         const amountInCents = Math.round(amounts.paidOnline * 100);
         const { data: tx, error: txErr } = await supabase.functions.invoke("wompi-create-transaction", {
-          body: { orderId: order.id, amountInCents },
+          body: {
+            orderId: order.id,
+            amountInCents,
+            guestEmail: user ? undefined : form.email.trim().toLowerCase(),
+          },
         });
         if (txErr || !tx?.signature) throw txErr ?? new Error("No se pudo iniciar el pago");
 
