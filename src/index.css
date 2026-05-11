@@ -9,7 +9,7 @@
 @layer base {
   :root {
     /* Core dark palette */
-    --background: 220 0% 20%; /* #0d0d0d */
+    --background: 0 0% 90%; /* #0d0d0d */
     --foreground: 0 0% 94%; /* #f0f0f0 */
 
     --surface: 0 0% 10%; /* #1a1a1a — cards */
