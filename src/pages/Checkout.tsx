@@ -190,10 +190,7 @@ const Checkout = () => {
       });
       if (addrErr) throw addrErr;
 
-      // Disparar emails de confirmación (cliente + admin) — sin bloquear el flujo
-      supabase.functions
-        .invoke("send-email", { body: { type: "order_created", order_number: order.order_number } })
-        .catch((e) => console.warn("[send-email] order_created", e));
+      // Los emails de confirmación se envían vía trigger de base de datos.
 
       // Si requiere Wompi, generar firma y redirigir
       if (usingWompi) {
