@@ -190,6 +190,11 @@ const Checkout = () => {
       });
       if (addrErr) throw addrErr;
 
+      // Disparar emails de confirmación (cliente + admin) — sin bloquear el flujo
+      supabase.functions
+        .invoke("send-email", { body: { type: "order_created", order_number: order.order_number } })
+        .catch((e) => console.warn("[send-email] order_created", e));
+
       // Si requiere Wompi, generar firma y redirigir
       if (usingWompi) {
         if (!payments.wompi_public_key) {
