@@ -68,6 +68,7 @@ const Contact = () => {
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
+              maxLength={100}
               className="w-full h-11 px-3 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30 transition-all"
               placeholder="Tu nombre"
             />
@@ -78,6 +79,7 @@ const Contact = () => {
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
+              maxLength={254}
               className="w-full h-11 px-3 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30 transition-all"
               placeholder="tucorreo@dominio.com"
             />
@@ -88,6 +90,7 @@ const Contact = () => {
               type="tel"
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              maxLength={30}
               className="w-full h-11 px-3 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30 transition-all"
               placeholder="+57 ..."
             />
@@ -98,6 +101,7 @@ const Contact = () => {
               value={form.message}
               onChange={(e) => setForm({ ...form, message: e.target.value })}
               rows={5}
+              maxLength={2000}
               className="w-full px-3 py-3 rounded-lg bg-surface-elevated border border-subtle text-sm focus:outline-none focus:border-primary-glow focus:ring-2 focus:ring-primary/30 transition-all resize-none"
               placeholder="¿En qué podemos ayudarte?"
             />
