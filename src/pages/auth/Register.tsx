@@ -35,13 +35,19 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      setConfirmError("Las contraseñas no coinciden");
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+    setConfirmError(null);
     const parsed = schema.safeParse(form);
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
       return;
     }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: parsed.data.email,
       password: parsed.data.password,
       options: {
@@ -54,7 +60,17 @@ const Register = () => {
     });
     setLoading(false);
     if (error) {
-      toast.error(error.message);
+      const msg = error.message?.toLowerCase() ?? "";
+      if (msg.includes("registered") || msg.includes("exists") || msg.includes("already")) {
+        toast.error("Este correo ya está registrado. ¿Quieres iniciar sesión?");
+      } else {
+        toast.error(error.message);
+      }
+      return;
+    }
+    // Supabase returns a user with empty identities array when the email already exists
+    if (data.user && (!data.user.identities || data.user.identities.length === 0)) {
+      toast.error("Este correo ya está registrado. ¿Quieres iniciar sesión?");
       return;
     }
     setSubmitted(true);
