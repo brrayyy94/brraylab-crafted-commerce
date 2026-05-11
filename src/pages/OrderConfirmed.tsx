@@ -35,31 +35,42 @@ const OrderConfirmed = () => {
   const [addr, setAddr] = useState<AddrRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [needsEmail, setNeedsEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const fetchOrder = async (email?: string) => {
+    if (!number) return;
+    setLoading(true);
+    setEmailError(null);
+    const { data, error } = await supabase.rpc("get_order_for_confirmation", {
+      _order_number: number,
+      _email: email ?? null,
+    });
+    if (error || !data) {
+      // If logged in, just not found. Otherwise prompt for email.
+      if (!user && !email) {
+        setNeedsEmail(true);
+        setLoading(false);
+        return;
+      }
+      if (email) setEmailError("No encontramos un pedido con ese correo.");
+      else setNotFound(true);
+      setLoading(false);
+      return;
+    }
+    const payload = data as { order: OrderRow; items: ItemRow[]; address: AddrRow | null };
+    setOrder(payload.order);
+    setItems(payload.items ?? []);
+    setAddr(payload.address ?? null);
+    setNeedsEmail(false);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (!number) return;
-      const { data: o } = await supabase
-        .from("orders")
-        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, amount_paid_online, amount_due_on_delivery, notes, created_at, user_id, guest_email")
-        .eq("order_number", number)
-        .maybeSingle();
-      if (cancelled) return;
-      if (!o) { setNotFound(true); setLoading(false); return; }
-      setOrder(o as OrderRow);
-      const [{ data: its }, { data: ad }] = await Promise.all([
-        supabase.from("order_items").select("id, name, price, quantity, image_url").eq("order_id", o.id),
-        supabase.from("order_addresses").select("full_name, phone, email, department, city, address, notes").eq("order_id", o.id).maybeSingle(),
-      ]);
-      if (cancelled) return;
-      setItems((its ?? []) as ItemRow[]);
-      setAddr((ad ?? null) as AddrRow | null);
-      setLoading(false);
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [number]);
+    fetchOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [number, user?.id]);
 
   if (loading) return <section className="container py-24 text-center text-muted-foreground">Cargando pedido…</section>;
   if (notFound || !order) {
