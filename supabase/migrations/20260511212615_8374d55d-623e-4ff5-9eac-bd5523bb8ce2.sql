@@ -2,9 +2,9 @@
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM vault.secrets WHERE name = 'send_email_internal_secret') THEN
-    PERFORM vault.create_secret('brraylab-email-secret-2026-xK9mP2qL', 'send_email_internal_secret', 'Internal secret used by DB triggers to authenticate calls to the send-email edge function.');
+    PERFORM vault.create_secret('<HARD_CODED_SECRET_REMOVED>', 'send_email_internal_secret', 'Internal secret used by DB triggers to authenticate calls to the send-email edge function.');
   ELSE
-    UPDATE vault.secrets SET secret = 'brraylab-email-secret-2026-xK9mP2qL' WHERE name = 'send_email_internal_secret';
+    UPDATE vault.secrets SET secret = '<HARD_CODED_SECRET_REMOVED>' WHERE name = 'send_email_internal_secret';
   END IF;
 END $$;
 
