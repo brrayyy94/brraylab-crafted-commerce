@@ -64,10 +64,12 @@ export const ProductReviews = ({ productId }: { productId: string }) => {
   const submit = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Inicia sesión");
+      if (!eligibleOrderId) throw new Error("Solo puedes reseñar productos que hayas comprado y recibido.");
       if (comment.trim().length < 10) throw new Error("El comentario debe tener al menos 10 caracteres");
       const { error } = await supabase.from("reviews").insert({
         product_id: productId,
         user_id: user.id,
+        order_id: eligibleOrderId,
         rating,
         comment: comment.trim(),
         approved: false,
