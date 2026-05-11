@@ -23,6 +23,21 @@ export const ProductReviews = ({ productId }: { productId: string }) => {
   const { user } = useAuth();
   const qc = useQueryClient();
 
+  const { data: eligibleOrderId } = useQuery({
+    queryKey: ["review-eligibility", productId, user?.id],
+    enabled: !!user,
+    queryFn: async (): Promise<string | null> => {
+      const { data: items } = await supabase
+        .from("order_items")
+        .select("order_id, orders!inner(id, user_id, status)")
+        .eq("product_id", productId)
+        .eq("orders.user_id", user!.id)
+        .eq("orders.status", "delivered")
+        .limit(1);
+      return items?.[0]?.order_id ?? null;
+    },
+  });
+
   const { data: reviews = [], isLoading } = useQuery({
     queryKey: ["reviews", productId],
     queryFn: async (): Promise<ReviewWithProfile[]> => {
