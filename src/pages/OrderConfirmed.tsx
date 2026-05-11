@@ -35,33 +35,76 @@ const OrderConfirmed = () => {
   const [addr, setAddr] = useState<AddrRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [needsEmail, setNeedsEmail] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const fetchOrder = async (email?: string) => {
+    if (!number) return;
+    setLoading(true);
+    setEmailError(null);
+    const { data, error } = await supabase.rpc("get_order_for_confirmation", {
+      _order_number: number,
+      _email: email ?? null,
+    });
+    if (error || !data) {
+      // If logged in, just not found. Otherwise prompt for email.
+      if (!user && !email) {
+        setNeedsEmail(true);
+        setLoading(false);
+        return;
+      }
+      if (email) setEmailError("No encontramos un pedido con ese correo.");
+      else setNotFound(true);
+      setLoading(false);
+      return;
+    }
+    const payload = data as { order: OrderRow; items: ItemRow[]; address: AddrRow | null };
+    setOrder(payload.order);
+    setItems(payload.items ?? []);
+    setAddr(payload.address ?? null);
+    setNeedsEmail(false);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (!number) return;
-      const { data: o } = await supabase
-        .from("orders")
-        .select("id, order_number, status, payment_status, payment_method, subtotal, shipping_cost, total, amount_paid_online, amount_due_on_delivery, notes, created_at, user_id, guest_email")
-        .eq("order_number", number)
-        .maybeSingle();
-      if (cancelled) return;
-      if (!o) { setNotFound(true); setLoading(false); return; }
-      setOrder(o as OrderRow);
-      const [{ data: its }, { data: ad }] = await Promise.all([
-        supabase.from("order_items").select("id, name, price, quantity, image_url").eq("order_id", o.id),
-        supabase.from("order_addresses").select("full_name, phone, email, department, city, address, notes").eq("order_id", o.id).maybeSingle(),
-      ]);
-      if (cancelled) return;
-      setItems((its ?? []) as ItemRow[]);
-      setAddr((ad ?? null) as AddrRow | null);
-      setLoading(false);
-    };
-    load();
-    return () => { cancelled = true; };
-  }, [number]);
+    fetchOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [number, user?.id]);
 
   if (loading) return <section className="container py-24 text-center text-muted-foreground">Cargando pedido…</section>;
+
+  if (needsEmail && !order) {
+    return (
+      <section className="container py-20 max-w-md mx-auto text-center">
+        <h1 className="font-display font-extrabold text-2xl md:text-3xl mb-3">Confirma tu pedido</h1>
+        <p className="text-muted-foreground mb-6 text-sm">
+          Por seguridad, ingresa el correo con el que realizaste el pedido <span className="font-semibold text-foreground">{number}</span>.
+        </p>
+        <form
+          onSubmit={(e) => { e.preventDefault(); fetchOrder(emailInput.trim()); }}
+          className="space-y-3 text-left"
+        >
+          <input
+            type="email"
+            required
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            placeholder="tu@correo.com"
+            className="w-full h-11 px-4 rounded-lg bg-surface border border-subtle focus:outline-none focus:border-primary"
+          />
+          {emailError && <p className="text-sm text-destructive">{emailError}</p>}
+          <button
+            type="submit"
+            className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-colors"
+          >
+            Ver pedido
+          </button>
+        </form>
+      </section>
+    );
+  }
+
   if (notFound || !order) {
     return (
       <section className="container py-24 text-center">
