@@ -134,52 +134,14 @@ const Checkout = () => {
     setSubmitting(true);
     try {
       const usingWompi = paymentChoice === "wompi_full" || (paymentChoice === "cod" && !isLocalCity);
-      const initialPaymentStatus = paymentChoice === "wompi_full"
-        ? "pending"
-        : isLocalCity
-          ? "cod_pending"
-          : "pending"; // anticipo de envío con Wompi
 
-      const paymentMethodLabel = paymentChoice === "wompi_full"
-        ? "wompi_full"
-        : isLocalCity
-          ? "cash_on_delivery"
-          : "wompi_shipping_cod_product";
-
-      const orderPayload = {
-        user_id: user?.id ?? null,
-        guest_email: user ? null : form.email.toLowerCase().trim(),
-        subtotal,
-        shipping_cost: shippingCost,
-        total,
-        amount_paid_online: amounts.paidOnline,
-        amount_due_on_delivery: amounts.dueOnDelivery,
-        status: "pending" as const,
-        payment_status: initialPaymentStatus as "pending" | "cod_pending",
-        payment_method: paymentMethodLabel,
-        payment_environment: payments.wompi_environment,
-        notes: form.notes || null,
-      };
-      const { data: order, error: orderErr } = await supabase
-        .from("orders")
-        .insert(orderPayload)
-        .select("id, order_number")
-        .single();
-      if (orderErr || !order) throw orderErr ?? new Error("No se pudo crear la orden");
-
+      // SECURITY: server-side RPC computes prices/shipping authoritatively from the DB.
+      // The client only sends product IDs + quantities and the address; it cannot manipulate prices.
       const itemsPayload = items.map((it) => ({
-        order_id: order.id,
         product_id: it.product.id,
-        name: it.product.name,
-        price: it.product.price,
         quantity: it.quantity,
-        image_url: it.product.image,
       }));
-      const { error: itemsErr } = await supabase.from("order_items").insert(itemsPayload);
-      if (itemsErr) throw itemsErr;
-
-      const { error: addrErr } = await supabase.from("order_addresses").insert({
-        order_id: order.id,
+      const addressPayload = {
         full_name: form.full_name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim().toLowerCase(),
@@ -187,10 +149,19 @@ const Checkout = () => {
         city: form.city.trim(),
         address: form.address.trim(),
         notes: form.notes.trim() || null,
-      });
-      if (addrErr) throw addrErr;
+      };
 
-      // Los emails de confirmación se envían vía trigger de base de datos.
+      const { data: rpcData, error: rpcErr } = await supabase.rpc("place_order", {
+        _items: itemsPayload,
+        _address: addressPayload,
+        _payment_choice: paymentChoice,
+        _guest_email: user ? null : form.email.trim().toLowerCase(),
+      });
+      if (rpcErr) throw rpcErr;
+      const order = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+      if (!order?.id || !order?.order_number) {
+        throw new Error("No se pudo crear la orden");
+      }
 
       // Si requiere Wompi, generar firma y redirigir
       if (usingWompi) {
@@ -199,11 +170,9 @@ const Checkout = () => {
           setSubmitting(false);
           return;
         }
-        const amountInCents = Math.round(amounts.paidOnline * 100);
         const { data: tx, error: txErr } = await supabase.functions.invoke("wompi-create-transaction", {
           body: {
             orderId: order.id,
-            amountInCents,
             guestEmail: user ? undefined : form.email.trim().toLowerCase(),
           },
         });
