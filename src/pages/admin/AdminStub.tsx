@@ -17,8 +17,11 @@ import {
   Plus,
   Search,
   ShoppingBag,
+  Sparkles,
   Star,
   Trash2,
+  ArrowUp,
+  ArrowDown,
   Upload,
   Users,
   X,
@@ -89,7 +92,7 @@ type ReviewRow = Tables<"reviews"> & {
   profile?: Pick<ProfileRow, "name" | "email"> | null;
 };
 
-type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes" | "hero" | "pagos";
+type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes" | "hero" | "pagos" | "apariencia";
 
 type ProductForm = {
   id?: string;
@@ -117,6 +120,7 @@ const navItems: Array<{ key: SectionKey; to: string; label: string; icon: Compon
   { key: "mensajes", to: "/admin/mensajes", label: "Mensajes", icon: Mail },
   { key: "hero", to: "/admin/hero", label: "Hero", icon: ImageIcon },
   { key: "pagos", to: "/admin/pagos", label: "Pagos & Envíos", icon: CreditCard },
+  { key: "apariencia", to: "/admin/apariencia", label: "Apariencia", icon: Sparkles },
 ];
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -210,6 +214,7 @@ const AdminStub = () => {
           {section === "mensajes" && <MessagesSection />}
           {section === "hero" && <HeroSettingsSection />}
           {section === "pagos" && <PaymentSettingsSection />}
+          {section === "apariencia" && <AppearanceSection />}
           {(section === "dashboard" || !navItems.some((item) => item.key === section)) && <DashboardSection />}
         </div>
       </main>
