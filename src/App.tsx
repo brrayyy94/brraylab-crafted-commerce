@@ -53,6 +53,7 @@ const App = () => (
         }}
       />
       <BrowserRouter>
+        <Analytics />
         <ScrollToTop />
         <AuthProvider>
           <CartProvider>
