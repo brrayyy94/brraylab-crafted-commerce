@@ -866,9 +866,15 @@ const CategoriesSection = () => {
   };
 
   const uploadImage = async (file: File) => {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const allowedTypes = ["image/jpeg", "image/png"];
+    const allowedExt = ["jpg", "jpeg", "png"];
+    if (!allowedTypes.includes(file.type) || !allowedExt.includes(ext)) {
+      toast.error("Solo se permiten imágenes JPG o PNG");
+      return;
+    }
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const slug = form.slug || slugify(form.name) || "categoria";
       const path = `categories/${slug}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
