@@ -20,10 +20,23 @@ const COLOMBIA_DEPTS = [
 
 type PaymentChoice = "wompi_full" | "cod";
 
+// Celular Colombia: 10 dígitos comenzando en 3, opcional prefijo +57 / 57.
+const COL_PHONE_RE = /^(?:\+?57)?\s*3\d{9}$/;
+const NAME_RE = /^[\p{L}\p{M}\s'.-]{3,100}$/u;
+
 const dataSchema = z.object({
-  full_name: z.string().trim().min(3, "Mínimo 3 caracteres").max(100),
-  email: z.string().trim().email("Email inválido").max(150),
-  phone: z.string().trim().min(7, "Teléfono inválido").max(20),
+  full_name: z
+    .string()
+    .trim()
+    .min(3, "Mínimo 3 caracteres")
+    .max(100, "Máximo 100 caracteres")
+    .regex(NAME_RE, "Solo letras, espacios, ' . -"),
+  email: z.string().trim().toLowerCase().email("Email inválido").max(150),
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s().-]/g, ""))
+    .refine((v) => COL_PHONE_RE.test(v), "Celular colombiano inválido (ej: 3001234567)"),
 });
 
 const shippingSchema = z.object({
@@ -31,6 +44,10 @@ const shippingSchema = z.object({
   city: z.string().trim().min(2, "Ciudad requerida").max(80),
   address: z.string().trim().min(5, "Dirección muy corta").max(200),
   notes: z.string().trim().max(300).optional().or(z.literal("")),
+});
+
+const paymentChoiceSchema = z.enum(["wompi_full", "cod"], {
+  errorMap: () => ({ message: "Método de pago inválido" }),
 });
 
 type Step = 1 | 2 | 3;
@@ -131,23 +148,39 @@ const Checkout = () => {
       toast.error("Configuración de pagos no disponible");
       return;
     }
+
+    // Re-validar TODO antes de enviar (defensa en profundidad).
+    const dataParsed = dataSchema.safeParse(form);
+    const shipParsed = shippingSchema.safeParse(form);
+    const choiceParsed = paymentChoiceSchema.safeParse(paymentChoice);
+    if (!dataParsed.success || !shipParsed.success || !choiceParsed.success) {
+      const errs: Record<string, string> = {};
+      [...(dataParsed.success ? [] : dataParsed.error.issues),
+       ...(shipParsed.success ? [] : shipParsed.error.issues)]
+        .forEach((i) => { errs[i.path[0] as string] = i.message; });
+      setErrors(errs);
+      toast.error("Revisa los datos del formulario");
+      setStep(!dataParsed.success ? 1 : 2);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const usingWompi = paymentChoice === "wompi_full" || (paymentChoice === "cod" && !isLocalCity);
 
-      // SECURITY: server-side RPC computes prices/shipping authoritatively from the DB.
-      // The client only sends product IDs + quantities and the address; it cannot manipulate prices.
+      // SECURITY: server-side RPC computes prices/shipping authoritatively from the DB
+      // y vuelve a validar email/teléfono. El cliente solo envía IDs + cantidades.
       const itemsPayload = items.map((it) => ({
         product_id: it.product.id,
         quantity: it.quantity,
       }));
       const addressPayload = {
-        full_name: form.full_name.trim(),
-        phone: form.phone.trim(),
-        email: form.email.trim().toLowerCase(),
-        department: form.department,
-        city: form.city.trim(),
-        address: form.address.trim(),
+        full_name: dataParsed.data.full_name,
+        phone: dataParsed.data.phone, // ya normalizado
+        email: dataParsed.data.email,
+        department: shipParsed.data.department,
+        city: shipParsed.data.city,
+        address: shipParsed.data.address,
         notes: form.notes.trim() || null,
       };
 
@@ -155,7 +188,7 @@ const Checkout = () => {
         _items: itemsPayload,
         _address: addressPayload,
         _payment_choice: paymentChoice,
-        _guest_email: user ? null : form.email.trim().toLowerCase(),
+        _guest_email: user ? null : dataParsed.data.email,
       });
       if (rpcErr) throw rpcErr;
       const order = Array.isArray(rpcData) ? rpcData[0] : rpcData;
