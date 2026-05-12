@@ -1481,6 +1481,7 @@ const OrdersSection = () => {
                       </div>
                     </TableCell>
                     <TableCell><PaymentMethodBadge method={order.payment_method} /></TableCell>
+                    <TableCell><PaymentStatusBadge status={order.payment_status} /></TableCell>
                     <TableCell className="text-muted-foreground">{formatShortDate(order.created_at)}</TableCell>
                     <TableCell>{formatPrice(toNumber(order.total))}</TableCell>
                     <TableCell><StatusBadge status={order.status} /></TableCell>
