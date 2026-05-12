@@ -555,6 +555,15 @@ const ProductsSection = () => {
       toast.error("Agrega un nombre o slug antes de subir imágenes");
       return;
     }
+    const allowedTypes = ["image/jpeg", "image/png"];
+    const allowedExt = ["jpg", "jpeg", "png"];
+    for (const file of Array.from(files)) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      if (!allowedTypes.includes(file.type) || !allowedExt.includes(ext)) {
+        toast.error(`Solo se permiten imágenes JPG o PNG (archivo inválido: ${file.name})`);
+        return;
+      }
+    }
     setUploading(true);
     try {
       const urls: string[] = [];
