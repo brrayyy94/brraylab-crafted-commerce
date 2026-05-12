@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-internal-secret",
+    "authorization, x-client-info, apikey, content-type",
 };
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -94,81 +94,11 @@ function formatAddress(addr: any) {
     .join("\n");
 }
 
-/**
- * Normaliza el body recibido a un payload "directo":
- *   { type, order_number?, email?, name? }
- *
- * Soporta:
- *  A) Llamada directa: { type, order_number, email, name }
- *  B) Database Webhook de Supabase:
- *     { type: "INSERT"|"UPDATE"|"DELETE", table, schema, record, old_record }
- */
-function normalizePayload(body: any): {
-  type: "welcome" | "order_created" | "order_status";
-  order_number?: string;
-  email?: string;
-  name?: string;
-} | null {
-  if (!body || typeof body !== "object") return null;
-
-  const isWebhook =
-    typeof body.table === "string" &&
-    typeof body.schema === "string" &&
-    ["INSERT", "UPDATE", "DELETE"].includes(body.type);
-
-  // ---- A) Llamada directa ----
-  if (!isWebhook) {
-    if (body.type === "welcome" || body.type === "order_created" || body.type === "order_status") {
-      return {
-        type: body.type,
-        order_number: body.order_number,
-        email: body.email,
-        name: body.name,
-      };
-    }
-    return null;
-  }
-
-  // ---- B) Webhook de Supabase ----
-  const rec = body.record ?? {};
-  const old = body.old_record ?? {};
-
-  // orders
-  if (body.schema === "public" && body.table === "orders") {
-    if (body.type === "INSERT" && rec.order_number) {
-      return { type: "order_created", order_number: rec.order_number };
-    }
-    if (body.type === "UPDATE" && rec.order_number && rec.status !== old.status) {
-      return { type: "order_status", order_number: rec.order_number };
-    }
-    return null;
-  }
-
-  // auth.users → welcome solo en la 1ra confirmación de email
-  if (body.schema === "auth" && body.table === "users") {
-    if (
-      body.type === "UPDATE" &&
-      rec.email &&
-      rec.email_confirmed_at &&
-      !old.email_confirmed_at
-    ) {
-      const meta = rec.raw_user_meta_data ?? {};
-      return {
-        type: "welcome",
-        email: rec.email,
-        name: meta.name ?? meta.full_name ?? "",
-      };
-    }
-    return null;
-  }
-
-  return null;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   // SECURITY: only callers with the internal secret may invoke this function.
+  // The secret lives in the database vault; we fetch it via a service_role-only RPC.
   const provided = (req.headers.get("x-internal-secret") ?? "").trim();
   let expected = "";
   try {
@@ -187,18 +117,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const raw = await req.json();
-    const payload = normalizePayload(raw);
-
-    if (!payload) {
-      // Webhook que no aplica (p. ej. UPDATE sin cambio de status). Respondemos 200 para que
-      // Supabase no haga retry infinito.
-      return new Response(JSON.stringify({ ok: true, skipped: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { type, order_number, email, name } = payload;
+    const { type, order_number, name, email } = await req.json();
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 
     // -------- WELCOME --------
@@ -236,6 +155,7 @@ Deno.serve(async (req) => {
 
     // -------- ORDER CREATED --------
     if (type === "order_created") {
+      // Customer confirmation
       if (customerEmail) {
         await sendWithTemplate(customerEmail, TEMPLATES.order_created_customer, {
           customer_name: customerName,
@@ -247,6 +167,7 @@ Deno.serve(async (req) => {
           order_url: orderUrl,
         });
       }
+      // Admin notification
       await sendWithTemplate(ADMIN_EMAIL, TEMPLATES.order_created_admin, {
         customer_name: customerName,
         customer_email: customerEmail ?? "",
