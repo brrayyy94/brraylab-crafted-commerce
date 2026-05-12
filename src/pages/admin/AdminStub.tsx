@@ -1462,6 +1462,7 @@ const OrdersSection = () => {
                 <TableHead>Orden</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Método de pago</TableHead>
+                <TableHead>Estado del pago</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Estado</TableHead>
