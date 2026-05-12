@@ -1351,15 +1351,15 @@ type PaymentFilter = "all" | PaymentMethod;
 
 const paymentMethodMeta: Record<PaymentMethod, { label: string; className: string }> = {
   wompi_full: {
-    label: "🟢 Pagado con Wompi",
-    className: "border-success/30 bg-success/15 text-success",
+    label: "Wompi (total)",
+    className: "border-info/30 bg-info/15 text-info",
   },
   cash_on_delivery: {
-    label: "🟡 Contraentrega - Cali",
+    label: "Contraentrega - Cali",
     className: "border-warning/30 bg-warning/15 text-warning",
   },
   wompi_shipping_cod_product: {
-    label: "🟠 Contraentrega - Nacional",
+    label: "Wompi (envío) + Contraentrega",
     className: "border-info/30 bg-info/15 text-info",
   },
 };
@@ -1368,6 +1368,35 @@ const PaymentMethodBadge = ({ method }: { method: string | null | undefined }) =
   const meta = method && (paymentMethodMeta as Record<string, { label: string; className: string }>)[method];
   if (!meta) {
     return <Badge variant="outline" className="border-subtle text-muted-foreground">Sin método</Badge>;
+  }
+  return <Badge variant="outline" className={cn("whitespace-nowrap", meta.className)}>{meta.label}</Badge>;
+};
+
+type PaymentStatus =
+  | "pending"
+  | "paid"
+  | "failed"
+  | "refunded"
+  | "cod_pending"
+  | "partial_paid"
+  | "rejected"
+  | "cancelled";
+
+const paymentStatusMeta: Record<PaymentStatus, { label: string; className: string }> = {
+  pending:      { label: "⏳ Pendiente",          className: "border-muted/40 bg-muted/20 text-muted-foreground" },
+  paid:         { label: "✅ Pagado",              className: "border-success/30 bg-success/15 text-success" },
+  partial_paid: { label: "🟢 Anticipo pagado",     className: "border-success/30 bg-success/15 text-success" },
+  cod_pending:  { label: "💵 Cobrar al entregar",  className: "border-warning/30 bg-warning/15 text-warning" },
+  rejected:     { label: "🔴 Rechazado",           className: "border-destructive/30 bg-destructive/15 text-destructive" },
+  failed:       { label: "⚠️ Error en el pago",    className: "border-destructive/30 bg-destructive/15 text-destructive" },
+  cancelled:    { label: "🚫 Cancelado",           className: "border-destructive/30 bg-destructive/15 text-destructive" },
+  refunded:     { label: "↩️ Reembolsado",         className: "border-info/30 bg-info/15 text-info" },
+};
+
+const PaymentStatusBadge = ({ status }: { status: string | null | undefined }) => {
+  const meta = status && (paymentStatusMeta as Record<string, { label: string; className: string }>)[status];
+  if (!meta) {
+    return <Badge variant="outline" className="border-subtle text-muted-foreground">—</Badge>;
   }
   return <Badge variant="outline" className={cn("whitespace-nowrap", meta.className)}>{meta.label}</Badge>;
 };
