@@ -1133,7 +1133,7 @@ const CategoriesSection = () => {
                 {form.image_url ? "Cambiar imagen" : "Subir imagen"}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,.jpg,.jpeg,.png"
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
