@@ -555,6 +555,15 @@ const ProductsSection = () => {
       toast.error("Agrega un nombre o slug antes de subir imágenes");
       return;
     }
+    const allowedTypes = ["image/jpeg", "image/png"];
+    const allowedExt = ["jpg", "jpeg", "png"];
+    for (const file of Array.from(files)) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      if (!allowedTypes.includes(file.type) || !allowedExt.includes(ext)) {
+        toast.error(`Solo se permiten imágenes JPG o PNG (archivo inválido: ${file.name})`);
+        return;
+      }
+    }
     setUploading(true);
     try {
       const urls: string[] = [];
@@ -741,7 +750,7 @@ const ProductsSection = () => {
                   <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
                     {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                     Subir
-                    <input type="file" multiple accept="image/*" className="sr-only" onChange={(event) => uploadImages(event.target.files)} />
+                    <input type="file" multiple accept="image/jpeg,image/png,.jpg,.jpeg,.png" className="sr-only" onChange={(event) => { uploadImages(event.target.files); event.target.value = ""; }} />
                   </label>
                 </div>
                 {form.images.length > 0 && (
@@ -857,9 +866,15 @@ const CategoriesSection = () => {
   };
 
   const uploadImage = async (file: File) => {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const allowedTypes = ["image/jpeg", "image/png"];
+    const allowedExt = ["jpg", "jpeg", "png"];
+    if (!allowedTypes.includes(file.type) || !allowedExt.includes(ext)) {
+      toast.error("Solo se permiten imágenes JPG o PNG");
+      return;
+    }
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const slug = form.slug || slugify(form.name) || "categoria";
       const path = `categories/${slug}-${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
@@ -1118,7 +1133,7 @@ const CategoriesSection = () => {
                 {form.image_url ? "Cambiar imagen" : "Subir imagen"}
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,.jpg,.jpeg,.png"
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
