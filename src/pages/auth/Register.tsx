@@ -78,16 +78,16 @@ const Register = () => {
 
   const handleGoogle = async () => {
     setOauthLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + redirectTo,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}${redirectTo}`,
+      },
     });
-    if (result.error) {
+    if (error) {
       setOauthLoading(false);
       toast.error("No se pudo registrar con Google");
-      return;
     }
-    if (result.redirected) return;
-    navigate(redirectTo, { replace: true });
   };
 
   if (submitted) {
