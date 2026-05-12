@@ -64,13 +64,20 @@ Deno.serve(async (req) => {
     let paymentStatus: string | null = null;
     let orderStatus: string | null = null;
 
+    // Solo una confirmación real de Wompi cambia el estado del pedido.
     if (status === "APPROVED") {
       // Si queda saldo por cobrar (anticipo de envío), marcamos parcial; si no, pagado.
       const due = Number(order.amount_due_on_delivery ?? 0);
       paymentStatus = due > 0 ? "partial_paid" : "paid";
       orderStatus = "processing";
-    } else if (status === "DECLINED" || status === "ERROR" || status === "VOIDED") {
+    } else if (status === "DECLINED") {
+      paymentStatus = "rejected";
+    } else if (status === "VOIDED") {
+      paymentStatus = "cancelled";
+    } else if (status === "ERROR") {
       paymentStatus = "failed";
+    } else if (status === "PENDING") {
+      paymentStatus = "pending";
     }
 
     if (paymentStatus) {
