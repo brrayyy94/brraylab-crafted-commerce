@@ -1351,15 +1351,15 @@ type PaymentFilter = "all" | PaymentMethod;
 
 const paymentMethodMeta: Record<PaymentMethod, { label: string; className: string }> = {
   wompi_full: {
-    label: "Wompi (total)",
+    label: "Wompi",
     className: "border-info/30 bg-info/15 text-info",
   },
   cash_on_delivery: {
-    label: "Contraentrega - Cali",
+    label: "Contraentrega",
     className: "border-warning/30 bg-warning/15 text-warning",
   },
   wompi_shipping_cod_product: {
-    label: "Wompi (envío) + Contraentrega",
+    label: "Wompi + Contraentrega",
     className: "border-info/30 bg-info/15 text-info",
   },
 };
