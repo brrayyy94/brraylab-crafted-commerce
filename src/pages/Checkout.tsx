@@ -20,10 +20,23 @@ const COLOMBIA_DEPTS = [
 
 type PaymentChoice = "wompi_full" | "cod";
 
+// Celular Colombia: 10 dígitos comenzando en 3, opcional prefijo +57 / 57.
+const COL_PHONE_RE = /^(?:\+?57)?\s*3\d{9}$/;
+const NAME_RE = /^[\p{L}\p{M}\s'.-]{3,100}$/u;
+
 const dataSchema = z.object({
-  full_name: z.string().trim().min(3, "Mínimo 3 caracteres").max(100),
-  email: z.string().trim().email("Email inválido").max(150),
-  phone: z.string().trim().min(7, "Teléfono inválido").max(20),
+  full_name: z
+    .string()
+    .trim()
+    .min(3, "Mínimo 3 caracteres")
+    .max(100, "Máximo 100 caracteres")
+    .regex(NAME_RE, "Solo letras, espacios, ' . -"),
+  email: z.string().trim().toLowerCase().email("Email inválido").max(150),
+  phone: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/[\s().-]/g, ""))
+    .refine((v) => COL_PHONE_RE.test(v), "Celular colombiano inválido (ej: 3001234567)"),
 });
 
 const shippingSchema = z.object({
@@ -31,6 +44,10 @@ const shippingSchema = z.object({
   city: z.string().trim().min(2, "Ciudad requerida").max(80),
   address: z.string().trim().min(5, "Dirección muy corta").max(200),
   notes: z.string().trim().max(300).optional().or(z.literal("")),
+});
+
+const paymentChoiceSchema = z.enum(["wompi_full", "cod"], {
+  errorMap: () => ({ message: "Método de pago inválido" }),
 });
 
 type Step = 1 | 2 | 3;
