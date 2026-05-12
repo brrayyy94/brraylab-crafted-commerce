@@ -4,7 +4,6 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -77,19 +76,21 @@ const Register = () => {
     toast.success("Revisa tu email para confirmar tu cuenta");
   };
 
-  const handleGoogle = async () => {
-    setOauthLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + redirectTo,
-    });
-    if (result.error) {
-      setOauthLoading(false);
-      toast.error("No se pudo registrar con Google");
-      return;
-    }
-    if (result.redirected) return;
-    navigate(redirectTo, { replace: true });
-  };
+// DESPUÉS
+const handleGoogle = async () => {
+  setOauthLoading(true);
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}${redirectTo}`,
+    },
+  });
+  if (error) {
+    setOauthLoading(false);
+    toast.error("No se pudo registrar con Google");
+  }
+  // Si no hay error, el navegador redirige a Google automáticamente
+};
 
   if (submitted) {
     return (

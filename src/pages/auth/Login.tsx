@@ -4,7 +4,6 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,19 +45,21 @@ const Login = () => {
     navigate(from, { replace: true });
   };
 
-  const handleGoogle = async () => {
-    setOauthLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + from,
-    });
-    if (result.error) {
-      setOauthLoading(false);
-      toast.error("No se pudo iniciar sesión con Google");
-      return;
-    }
-    if (result.redirected) return;
-    navigate(from, { replace: true });
-  };
+  // DESPUÉS
+const handleGoogle = async () => {
+  setOauthLoading(true);
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}${from}`,
+    },
+  });
+  if (error) {
+    setOauthLoading(false);
+    toast.error("No se pudo iniciar sesión con Google");
+  }
+  // Si no hay error, el navegador redirige a Google automáticamente
+};
 
   return (
     <div className="container max-w-md py-20">
