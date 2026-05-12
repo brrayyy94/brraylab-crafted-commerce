@@ -1448,9 +1448,9 @@ const OrdersSection = () => {
           <SelectTrigger className="bg-surface border-subtle"><SelectValue placeholder="Método de pago" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los métodos</SelectItem>
-            <SelectItem value="wompi_full">🟢 Pagado con Wompi</SelectItem>
-            <SelectItem value="cash_on_delivery">🟡 Contraentrega - Cali</SelectItem>
-            <SelectItem value="wompi_shipping_cod_product">🟠 Contraentrega - Nacional</SelectItem>
+            <SelectItem value="wompi_full">Wompi (total)</SelectItem>
+            <SelectItem value="cash_on_delivery">Contraentrega - Cali</SelectItem>
+            <SelectItem value="wompi_shipping_cod_product">Wompi (envío) + Contraentrega</SelectItem>
           </SelectContent>
         </Select>
       </div>
