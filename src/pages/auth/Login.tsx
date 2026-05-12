@@ -45,20 +45,21 @@ const Login = () => {
     navigate(from, { replace: true });
   };
 
-  const handleGoogle = async () => {
-    setOauthLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}${from}`,
-      },
-    });
-    if (error) {
-      setOauthLoading(false);
-      toast.error("No se pudo iniciar sesión con Google");
-    }
-    // On success, the browser will redirect to Google.
-  };
+  // DESPUÉS
+const handleGoogle = async () => {
+  setOauthLoading(true);
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}${from}`,
+    },
+  });
+  if (error) {
+    setOauthLoading(false);
+    toast.error("No se pudo iniciar sesión con Google");
+  }
+  // Si no hay error, el navegador redirige a Google automáticamente
+};
 
   return (
     <div className="container max-w-md py-20">
