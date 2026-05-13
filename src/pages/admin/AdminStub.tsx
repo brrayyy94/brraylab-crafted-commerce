@@ -1539,10 +1539,28 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!order) return;
-      const prevStatus = order.status;
-      const { error } = await supabase.from("orders").update({ status, tracking_number: tracking.trim() || null }).eq("id", order.id);
+      // Auto-ajuste del status según payment_status:
+      // - paid / partial_paid  -> processing (solo si actualmente está pending)
+      // - cancelled / rejected -> cancelled (solo si actualmente está pending o processing)
+      let nextStatus: OrderStatus = status;
+      const paymentChanged = paymentStatus !== order.payment_status;
+      if (paymentChanged) {
+        if ((paymentStatus === "paid" || paymentStatus === "partial_paid") && status === "pending") {
+          nextStatus = "processing" as OrderStatus;
+        } else if ((paymentStatus === "cancelled" || paymentStatus === "rejected") && (status === "pending" || status === "processing")) {
+          nextStatus = "cancelled" as OrderStatus;
+        }
+      }
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          status: nextStatus,
+          payment_status: paymentStatus,
+          tracking_number: tracking.trim() || null,
+        })
+        .eq("id", order.id);
       if (error) throw error;
-      // El email de cambio de estado se envía vía trigger de base de datos.
+      if (nextStatus !== status) setStatus(nextStatus);
     },
     onSuccess: async () => {
       toast.success("Pedido actualizado");
