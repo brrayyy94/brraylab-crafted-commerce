@@ -33,7 +33,7 @@ const ProductDetail = () => {
     toast.success("Agregado al carrito", { description: product.name });
   };
 
-  const waUrl = "https://wa.me/message/XR4F5RKSB53KP1";
+  const waUrl = "https://wa.me/573160872838";
 
   return (
     <>
