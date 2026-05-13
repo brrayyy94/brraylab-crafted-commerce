@@ -12,7 +12,7 @@ import { usePaymentSettings, normalizeCity } from "@/hooks/usePaymentSettings";
 import { buildWhatsappLink } from "@/lib/whatsapp";
 
 // Número de WhatsApp del negocio para recibir pedidos.
-const BRRAYLAB_WHATSAPP = "+573012954735";
+const BRRAYLAB_WHATSAPP = "+573160872838";
 
 const COLOMBIA_DEPTS = [
   "Amazonas","Antioquia","Arauca","Atlántico","Bolívar","Boyacá","Caldas","Caquetá","Casanare","Cauca",
