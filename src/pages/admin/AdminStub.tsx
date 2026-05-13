@@ -1397,7 +1397,15 @@ const paymentStatusMeta: Record<PaymentStatus, { label: string; className: strin
   refunded:     { label: "↩️ Reembolsado",         className: "border-info/30 bg-info/15 text-info" },
 };
 
-const PaymentStatusBadge = ({ status }: { status: string | null | undefined }) => {
+const PaymentStatusBadge = ({ status, method }: { status: string | null | undefined; method?: string | null }) => {
+  // Pedido por WhatsApp pendiente: etiqueta dedicada para diferenciarlo de Wompi pendiente.
+  if (status === "pending" && method === "whatsapp_manual") {
+    return (
+      <Badge variant="outline" className={cn("whitespace-nowrap", "border-success/30 bg-success/15 text-success")}>
+        💬 Pendiente · WhatsApp
+      </Badge>
+    );
+  }
   const meta = status && (paymentStatusMeta as Record<string, { label: string; className: string }>)[status];
   if (!meta) {
     return <Badge variant="outline" className="border-subtle text-muted-foreground">—</Badge>;
