@@ -1346,7 +1346,7 @@ const HeroSettingsSection = () => {
   );
 };
 
-type PaymentMethod = "wompi_full" | "cash_on_delivery" | "wompi_shipping_cod_product";
+type PaymentMethod = "wompi_full" | "cash_on_delivery" | "wompi_shipping_cod_product" | "whatsapp_manual";
 type PaymentFilter = "all" | PaymentMethod;
 
 const paymentMethodMeta: Record<PaymentMethod, { label: string; className: string }> = {
@@ -1361,6 +1361,10 @@ const paymentMethodMeta: Record<PaymentMethod, { label: string; className: strin
   wompi_shipping_cod_product: {
     label: "Wompi + Contraentrega",
     className: "border-info/30 bg-info/15 text-info",
+  },
+  whatsapp_manual: {
+    label: "💬 WhatsApp",
+    className: "border-success/30 bg-success/15 text-success",
   },
 };
 
@@ -1393,7 +1397,15 @@ const paymentStatusMeta: Record<PaymentStatus, { label: string; className: strin
   refunded:     { label: "↩️ Reembolsado",         className: "border-info/30 bg-info/15 text-info" },
 };
 
-const PaymentStatusBadge = ({ status }: { status: string | null | undefined }) => {
+const PaymentStatusBadge = ({ status, method }: { status: string | null | undefined; method?: string | null }) => {
+  // Pedido por WhatsApp pendiente: etiqueta dedicada para diferenciarlo de Wompi pendiente.
+  if (status === "pending" && method === "whatsapp_manual") {
+    return (
+      <Badge variant="outline" className={cn("whitespace-nowrap", "border-success/30 bg-success/15 text-success")}>
+        💬 Pendiente · WhatsApp
+      </Badge>
+    );
+  }
   const meta = status && (paymentStatusMeta as Record<string, { label: string; className: string }>)[status];
   if (!meta) {
     return <Badge variant="outline" className="border-subtle text-muted-foreground">—</Badge>;
@@ -1481,7 +1493,7 @@ const OrdersSection = () => {
                       </div>
                     </TableCell>
                     <TableCell><PaymentMethodBadge method={order.payment_method} /></TableCell>
-                    <TableCell><PaymentStatusBadge status={order.payment_status} /></TableCell>
+                    <TableCell><PaymentStatusBadge status={order.payment_status} method={order.payment_method} /></TableCell>
                     <TableCell className="text-muted-foreground">{formatShortDate(order.created_at)}</TableCell>
                     <TableCell>{formatPrice(toNumber(order.total))}</TableCell>
                     <TableCell><StatusBadge status={order.status} /></TableCell>
@@ -1556,7 +1568,7 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 <PaymentMethodBadge method={order?.payment_method} />
-                <PaymentStatusBadge status={order?.payment_status} />
+                <PaymentStatusBadge status={order?.payment_status} method={order?.payment_method} />
                 {order?.payment_environment && (
                   <Badge variant="outline" className="border-subtle text-muted-foreground capitalize">
                     {order.payment_environment}
