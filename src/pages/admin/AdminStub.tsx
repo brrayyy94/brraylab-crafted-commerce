@@ -1512,11 +1512,13 @@ const OrdersSection = () => {
 const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | null; open: boolean; onOpenChange: (open: boolean) => void }) => {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<OrderStatus>("pending");
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("pending");
   const [tracking, setTracking] = useState("");
 
   useEffect(() => {
     if (!order) return;
     setStatus(order.status);
+    setPaymentStatus((order.payment_status as PaymentStatus) ?? "pending");
     setTracking(order.tracking_number ?? "");
   }, [order]);
 
@@ -1537,10 +1539,28 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!order) return;
-      const prevStatus = order.status;
-      const { error } = await supabase.from("orders").update({ status, tracking_number: tracking.trim() || null }).eq("id", order.id);
+      // Auto-ajuste del status según payment_status:
+      // - paid / partial_paid  -> processing (solo si actualmente está pending)
+      // - cancelled / rejected -> cancelled (solo si actualmente está pending o processing)
+      let nextStatus: OrderStatus = status;
+      const paymentChanged = paymentStatus !== order.payment_status;
+      if (paymentChanged) {
+        if ((paymentStatus === "paid" || paymentStatus === "partial_paid") && status === "pending") {
+          nextStatus = "processing" as OrderStatus;
+        } else if ((paymentStatus === "cancelled" || paymentStatus === "rejected") && (status === "pending" || status === "processing")) {
+          nextStatus = "cancelled" as OrderStatus;
+        }
+      }
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          status: nextStatus,
+          payment_status: paymentStatus,
+          tracking_number: tracking.trim() || null,
+        })
+        .eq("id", order.id);
       if (error) throw error;
-      // El email de cambio de estado se envía vía trigger de base de datos.
+      if (nextStatus !== status) setStatus(nextStatus);
     },
     onSuccess: async () => {
       toast.success("Pedido actualizado");
@@ -1627,13 +1647,26 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
                   <p><span className="text-foreground">Notas:</span> {address?.notes ?? order?.notes ?? "—"}</p>
                 </div>
               </div>
-              <FormField label="Estado">
+              <FormField label="Estado del pedido">
                 <Select value={status} onValueChange={(value) => setStatus(value as OrderStatus)}>
                   <SelectTrigger className="bg-surface-elevated border-subtle"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(statusLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </FormField>
+              <FormField label="Estado del pago">
+                <Select value={paymentStatus} onValueChange={(value) => setPaymentStatus(value as PaymentStatus)}>
+                  <SelectTrigger className="bg-surface-elevated border-subtle"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(["pending","paid","partial_paid","cod_pending","rejected","failed","cancelled","refunded"] as PaymentStatus[]).map((value) => (
+                      <SelectItem key={value} value={value}>{paymentStatusMeta[value].label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Marcar como “Pagado” o “Pago parcial” pasa el pedido a <em>Procesando</em> automáticamente.
+                </p>
               </FormField>
               <FormField label="Número de seguimiento">
                 <Input value={tracking} onChange={(event) => setTracking(event.target.value)} className="bg-surface-elevated border-subtle" />
