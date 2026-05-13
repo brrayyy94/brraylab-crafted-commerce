@@ -1512,11 +1512,13 @@ const OrdersSection = () => {
 const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | null; open: boolean; onOpenChange: (open: boolean) => void }) => {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<OrderStatus>("pending");
+  const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("pending");
   const [tracking, setTracking] = useState("");
 
   useEffect(() => {
     if (!order) return;
     setStatus(order.status);
+    setPaymentStatus((order.payment_status as PaymentStatus) ?? "pending");
     setTracking(order.tracking_number ?? "");
   }, [order]);
 
