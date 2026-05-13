@@ -1568,7 +1568,7 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 <PaymentMethodBadge method={order?.payment_method} />
-                <PaymentStatusBadge status={order?.payment_status} />
+                <PaymentStatusBadge status={order?.payment_status} method={order?.payment_method} />
                 {order?.payment_environment && (
                   <Badge variant="outline" className="border-subtle text-muted-foreground capitalize">
                     {order.payment_environment}
