@@ -1647,13 +1647,26 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
                   <p><span className="text-foreground">Notas:</span> {address?.notes ?? order?.notes ?? "—"}</p>
                 </div>
               </div>
-              <FormField label="Estado">
+              <FormField label="Estado del pedido">
                 <Select value={status} onValueChange={(value) => setStatus(value as OrderStatus)}>
                   <SelectTrigger className="bg-surface-elevated border-subtle"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.entries(statusLabels).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </FormField>
+              <FormField label="Estado del pago">
+                <Select value={paymentStatus} onValueChange={(value) => setPaymentStatus(value as PaymentStatus)}>
+                  <SelectTrigger className="bg-surface-elevated border-subtle"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(["pending","paid","partial_paid","cod_pending","rejected","failed","cancelled","refunded"] as PaymentStatus[]).map((value) => (
+                      <SelectItem key={value} value={value}>{paymentStatusMeta[value].label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Marcar como “Pagado” o “Pago parcial” pasa el pedido a <em>Procesando</em> automáticamente.
+                </p>
               </FormField>
               <FormField label="Número de seguimiento">
                 <Input value={tracking} onChange={(event) => setTracking(event.target.value)} className="bg-surface-elevated border-subtle" />
