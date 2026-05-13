@@ -124,12 +124,25 @@ const OrderConfirmed = () => {
           <div className="h-20 w-20 rounded-full bg-success/15 flex items-center justify-center text-success">
             <CheckCircle2 className="h-10 w-10" />
           </div>
-          <p className="text-xs uppercase tracking-widest text-primary-glow">Pedido confirmado</p>
-          <h1 className="font-display font-extrabold text-3xl md:text-5xl">¡Gracias por tu compra!</h1>
-          <p className="text-muted-foreground max-w-md">
-            Hemos recibido tu pedido <span className="font-semibold text-foreground">{order.order_number}</span>.
-            Te contactaremos pronto para coordinar el envío.
-          </p>
+          {order.payment_method === "whatsapp_manual" ? (
+            <>
+              <p className="text-xs uppercase tracking-widest text-primary-glow">Pedido enviado</p>
+              <h1 className="font-display font-extrabold text-3xl md:text-5xl">¡Pedido enviado! 🎉</h1>
+              <p className="text-muted-foreground max-w-md">
+                Tu pedido <span className="font-semibold text-foreground">{order.order_number}</span> fue registrado.
+                Continúa la conversación en WhatsApp para confirmar disponibilidad y coordinar el pago.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs uppercase tracking-widest text-primary-glow">Pedido confirmado</p>
+              <h1 className="font-display font-extrabold text-3xl md:text-5xl">¡Gracias por tu compra!</h1>
+              <p className="text-muted-foreground max-w-md">
+                Hemos recibido tu pedido <span className="font-semibold text-foreground">{order.order_number}</span>.
+                Te contactaremos pronto para coordinar el envío.
+              </p>
+            </>
+          )}
         </div>
 
         <div className="grid md:grid-cols-2 gap-4 mb-6">
