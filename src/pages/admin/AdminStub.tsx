@@ -1513,14 +1513,20 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<OrderStatus>("pending");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>("pending");
+  const [paidInput, setPaidInput] = useState<string>("0");
   const [tracking, setTracking] = useState("");
 
   useEffect(() => {
     if (!order) return;
     setStatus(order.status);
     setPaymentStatus((order.payment_status as PaymentStatus) ?? "pending");
+    setPaidInput(String(toNumber(order.amount_paid_online) || 0));
     setTracking(order.tracking_number ?? "");
   }, [order]);
+
+  const totalNum = toNumber(order?.total);
+  const paidNum = Math.max(0, Number(paidInput) || 0);
+  const dueComputed = Math.max(0, totalNum - paidNum);
 
   const details = useQuery({
     queryKey: ["admin-order-details", order?.id],
@@ -1539,28 +1545,51 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!order) return;
-      // Auto-ajuste del status según payment_status:
-      // - paid / partial_paid  -> processing (solo si actualmente está pending)
-      // - cancelled / rejected -> cancelled (solo si actualmente está pending o processing)
+      // Validaciones de pago parcial
+      let nextPaymentStatus: PaymentStatus = paymentStatus;
+      let nextPaidOnline = toNumber(order.amount_paid_online);
+      let nextDueOnDelivery = toNumber(order.amount_due_on_delivery);
+
+      if (paymentStatus === "partial_paid") {
+        if (paidNum <= 0) throw new Error("El anticipo debe ser mayor a 0");
+        if (paidNum > totalNum) throw new Error("El anticipo no puede ser mayor al total");
+        if (paidNum >= totalNum) {
+          nextPaymentStatus = "paid";
+          nextPaidOnline = totalNum;
+          nextDueOnDelivery = 0;
+        } else {
+          nextPaidOnline = paidNum;
+          nextDueOnDelivery = totalNum - paidNum;
+        }
+      } else if (paymentStatus === "paid") {
+        nextPaidOnline = totalNum;
+        nextDueOnDelivery = 0;
+      }
+
+      // Auto-ajuste del status según payment_status
       let nextStatus: OrderStatus = status;
-      const paymentChanged = paymentStatus !== order.payment_status;
+      const paymentChanged = nextPaymentStatus !== order.payment_status;
       if (paymentChanged) {
-        if ((paymentStatus === "paid" || paymentStatus === "partial_paid") && status === "pending") {
+        if ((nextPaymentStatus === "paid" || nextPaymentStatus === "partial_paid") && status === "pending") {
           nextStatus = "processing" as OrderStatus;
-        } else if ((paymentStatus === "cancelled" || paymentStatus === "rejected") && (status === "pending" || status === "processing")) {
+        } else if ((nextPaymentStatus === "cancelled" || nextPaymentStatus === "rejected") && (status === "pending" || status === "processing")) {
           nextStatus = "cancelled" as OrderStatus;
         }
       }
+
       const { error } = await supabase
         .from("orders")
         .update({
           status: nextStatus,
-          payment_status: paymentStatus,
+          payment_status: nextPaymentStatus,
+          amount_paid_online: nextPaidOnline,
+          amount_due_on_delivery: nextDueOnDelivery,
           tracking_number: tracking.trim() || null,
         })
         .eq("id", order.id);
       if (error) throw error;
       if (nextStatus !== status) setStatus(nextStatus);
+      if (nextPaymentStatus !== paymentStatus) setPaymentStatus(nextPaymentStatus);
     },
     onSuccess: async () => {
       toast.success("Pedido actualizado");
@@ -1568,7 +1597,10 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
       await queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
       onOpenChange(false);
     },
-    onError: () => toast.error("No se pudo actualizar el pedido"),
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "No se pudo actualizar el pedido";
+      toast.error(msg);
+    },
   });
 
   const address = details.data?.address ?? (order ? getOrderAddress(order) : null);
@@ -1668,9 +1700,46 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
                   Marcar como “Pagado” o “Pago parcial” pasa el pedido a <em>Procesando</em> automáticamente.
                 </p>
               </FormField>
+              {paymentStatus === "partial_paid" && (
+                <div className="space-y-3 rounded-md border border-warning/30 bg-warning/5 p-3">
+                  <FormField label="Anticipo pagado (COP)">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={totalNum}
+                      step="1000"
+                      value={paidInput}
+                      onChange={(event) => setPaidInput(event.target.value)}
+                      className="bg-surface-elevated border-subtle"
+                    />
+                  </FormField>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Saldo pendiente</span>
+                    <span className="font-medium text-warning">{formatPrice(dueComputed)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-subtle pt-2">
+                    <span className="font-medium">Total del pedido</span>
+                    <span className="font-display font-bold">{formatPrice(totalNum)}</span>
+                  </div>
+                  {paidNum > totalNum && (
+                    <p className="text-xs text-destructive">El anticipo no puede ser mayor al total.</p>
+                  )}
+                  {paidNum <= 0 && (
+                    <p className="text-xs text-destructive">El anticipo debe ser mayor a 0.</p>
+                  )}
+                  {paidNum >= totalNum && paidNum > 0 && (
+                    <p className="text-xs text-success">Al guardar, el pedido se marcará como Pagado.</p>
+                  )}
+                </div>
+              )}
               <FormField label="Número de seguimiento">
                 <Input value={tracking} onChange={(event) => setTracking(event.target.value)} className="bg-surface-elevated border-subtle" />
               </FormField>
+              {order?.updated_at && (
+                <p className="text-xs text-muted-foreground">
+                  Última actualización: {formatShortDate(order.updated_at)}
+                </p>
+              )}
             </div>
           </div>
         )}
