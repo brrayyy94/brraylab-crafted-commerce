@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { Lock, ShieldCheck, Truck, ChevronLeft, Loader2, UserCircle2, CreditCard, Banknote, AlertTriangle } from "lucide-react";
+import { Lock, ShieldCheck, Truck, ChevronLeft, Loader2, UserCircle2, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -9,7 +9,10 @@ import { formatPrice } from "@/data/products";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { usePaymentSettings, normalizeCity } from "@/hooks/usePaymentSettings";
-import { buildWompiCheckoutUrl } from "@/lib/wompi";
+import { buildWhatsappLink } from "@/lib/whatsapp";
+
+// Número de WhatsApp del negocio para recibir pedidos.
+const BRRAYLAB_WHATSAPP = "+573012954735";
 
 const COLOMBIA_DEPTS = [
   "Amazonas","Antioquia","Arauca","Atlántico","Bolívar","Boyacá","Caldas","Caquetá","Casanare","Cauca",
@@ -17,8 +20,6 @@ const COLOMBIA_DEPTS = [
   "Meta","Nariño","Norte de Santander","Putumayo","Quindío","Risaralda","San Andrés y Providencia","Santander",
   "Sucre","Tolima","Valle del Cauca","Vaupés","Vichada",
 ];
-
-type PaymentChoice = "wompi_full" | "cod";
 
 // Celular Colombia: 10 dígitos comenzando en 3, opcional prefijo +57 / 57.
 const COL_PHONE_RE = /^(?:\+?57)?\s*3\d{9}$/;
@@ -46,15 +47,11 @@ const shippingSchema = z.object({
   notes: z.string().trim().max(300).optional().or(z.literal("")),
 });
 
-const paymentChoiceSchema = z.enum(["wompi_full", "cod"], {
-  errorMap: () => ({ message: "Método de pago inválido" }),
-});
-
 type Step = 1 | 2 | 3;
 
 const stepLabels: Record<Step, string> = {
   1: "Datos",
-  2: "Envío y pago",
+  2: "Envío",
   3: "Confirmación",
 };
 
@@ -67,7 +64,6 @@ const Checkout = () => {
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
   const [guestMode, setGuestMode] = useState(false);
-  const [paymentChoice, setPaymentChoice] = useState<PaymentChoice>("wompi_full");
 
   const [form, setForm] = useState({
     full_name: "",
@@ -103,18 +99,6 @@ const Checkout = () => {
 
   const total = subtotal + shippingCost;
 
-  // Montos según método
-  const codEnabled = payments?.cod_enabled ?? true;
-  const amounts = useMemo(() => {
-    if (paymentChoice === "wompi_full") {
-      return { paidOnline: total, dueOnDelivery: 0 };
-    }
-    // COD
-    return isLocalCity
-      ? { paidOnline: 0, dueOnDelivery: total }
-      : { paidOnline: shippingCost, dueOnDelivery: subtotal };
-  }, [paymentChoice, total, isLocalCity, shippingCost, subtotal]);
-
   const update = (field: keyof typeof form, value: string) => {
     setForm((f) => ({ ...f, [field]: value }));
     if (errors[field]) setErrors((e) => ({ ...e, [field]: "" }));
@@ -142,18 +126,45 @@ const Checkout = () => {
     }
   };
 
+  const buildWhatsappOrderMessage = (orderNumber: string) => {
+    const lines: string[] = [];
+    lines.push("Hola BrrayLab 👋 Quiero hacer un pedido:");
+    lines.push("");
+    lines.push(`🛒 *Pedido ${orderNumber}*`);
+    lines.push("");
+    lines.push("*Productos:*");
+    items.forEach((it) => {
+      lines.push(`- ${it.product.name} x${it.quantity} — ${formatPrice(it.product.price * it.quantity)}`);
+    });
+    lines.push("");
+    lines.push(`*Subtotal:* ${formatPrice(subtotal)}`);
+    lines.push(`*Envío:* ${formatPrice(shippingCost)}`);
+    lines.push(`*Total:* ${formatPrice(total)}`);
+    lines.push("");
+    lines.push("*Datos de entrega:*");
+    lines.push(`Nombre: ${form.full_name.trim()}`);
+    lines.push(`Teléfono: ${form.phone.trim()}`);
+    lines.push(`Dirección: ${form.address.trim()}, ${form.city.trim()}, ${form.department}`);
+    lines.push(`Email: ${form.email.trim().toLowerCase()}`);
+    if (form.notes.trim()) {
+      lines.push(`Notas: ${form.notes.trim()}`);
+    }
+    lines.push("");
+    lines.push("Por favor confirmar disponibilidad y método de pago 🙏");
+    return lines.join("\n");
+  };
+
   const placeOrder = async () => {
     if (items.length === 0) return;
     if (!payments) {
-      toast.error("Configuración de pagos no disponible");
+      toast.error("Configuración no disponible");
       return;
     }
 
     // Re-validar TODO antes de enviar (defensa en profundidad).
     const dataParsed = dataSchema.safeParse(form);
     const shipParsed = shippingSchema.safeParse(form);
-    const choiceParsed = paymentChoiceSchema.safeParse(paymentChoice);
-    if (!dataParsed.success || !shipParsed.success || !choiceParsed.success) {
+    if (!dataParsed.success || !shipParsed.success) {
       const errs: Record<string, string> = {};
       [...(dataParsed.success ? [] : dataParsed.error.issues),
        ...(shipParsed.success ? [] : shipParsed.error.issues)]
@@ -166,17 +177,13 @@ const Checkout = () => {
 
     setSubmitting(true);
     try {
-      const usingWompi = paymentChoice === "wompi_full" || (paymentChoice === "cod" && !isLocalCity);
-
-      // SECURITY: server-side RPC computes prices/shipping authoritatively from the DB
-      // y vuelve a validar email/teléfono. El cliente solo envía IDs + cantidades.
       const itemsPayload = items.map((it) => ({
         product_id: it.product.id,
         quantity: it.quantity,
       }));
       const addressPayload = {
         full_name: dataParsed.data.full_name,
-        phone: dataParsed.data.phone, // ya normalizado
+        phone: dataParsed.data.phone,
         email: dataParsed.data.email,
         department: shipParsed.data.department,
         city: shipParsed.data.city,
@@ -187,7 +194,7 @@ const Checkout = () => {
       const { data: rpcData, error: rpcErr } = await supabase.rpc("place_order", {
         _items: itemsPayload,
         _address: addressPayload,
-        _payment_choice: paymentChoice,
+        _payment_choice: "whatsapp",
         _guest_email: user ? null : dataParsed.data.email,
       });
       if (rpcErr) throw rpcErr;
@@ -196,38 +203,13 @@ const Checkout = () => {
         throw new Error("No se pudo crear la orden");
       }
 
-      // Si requiere Wompi, generar firma y redirigir
-      if (usingWompi) {
-        if (!payments.wompi_public_key) {
-          toast.error("Wompi no está configurado", { description: "Pídele al administrador que configure la llave pública." });
-          setSubmitting(false);
-          return;
-        }
-        const { data: tx, error: txErr } = await supabase.functions.invoke("wompi-create-transaction", {
-          body: {
-            orderId: order.id,
-            guestEmail: user ? undefined : form.email.trim().toLowerCase(),
-          },
-        });
-        if (txErr || !tx?.signature) throw txErr ?? new Error("No se pudo iniciar el pago");
+      // Abrir WhatsApp con el resumen del pedido.
+      const message = buildWhatsappOrderMessage(order.order_number);
+      const waUrl = buildWhatsappLink(BRRAYLAB_WHATSAPP, message);
+      window.open(waUrl, "_blank", "noopener,noreferrer");
 
-        const redirectUrl = `${window.location.origin}/orden/${order.order_number}`;
-        const url = buildWompiCheckoutUrl({
-          publicKey: payments.wompi_public_key,
-          amountInCents: tx.amountInCents,
-          reference: tx.reference,
-          signature: tx.signature,
-          redirectUrl,
-          customerEmail: form.email.trim().toLowerCase(),
-        });
-        clear();
-        window.location.href = url;
-        return;
-      }
-
-      // COD local: ir directo a confirmación
       clear();
-      toast.success("Pedido creado", { description: `Orden ${order.order_number}` });
+      toast.success("Pedido enviado", { description: `Orden ${order.order_number}` });
       navigate(`/orden/${order.order_number}`);
     } catch (err) {
       console.error("[checkout] error", err);
@@ -366,37 +348,11 @@ const Checkout = () => {
                   </div>
                 )}
 
-                <div className="space-y-3 pt-2">
-                  <h3 className="font-display font-bold text-lg">Método de pago</h3>
-
-                  <PaymentOption
-                    selected={paymentChoice === "wompi_full"}
-                    onClick={() => setPaymentChoice("wompi_full")}
-                    icon={CreditCard}
-                    title="Pagar todo con Wompi"
-                    desc={`Paga ${formatPrice(total)} ahora con tarjeta, PSE o Nequi.`}
-                  />
-
-                  {codEnabled && (
-                    <PaymentOption
-                      selected={paymentChoice === "cod"}
-                      onClick={() => setPaymentChoice("cod")}
-                      icon={Banknote}
-                      title="Contraentrega"
-                      desc={
-                        isLocalCity
-                          ? `Pagas ${formatPrice(total)} al recibir (producto + domicilio).`
-                          : `Anticipa el envío de ${formatPrice(shippingCost)} con Wompi · pagas ${formatPrice(subtotal)} al recibir el producto.`
-                      }
-                    />
-                  )}
-
-                  {paymentChoice === "cod" && !isLocalCity && form.city.trim() && (
-                    <div className="rounded-lg border border-warning/40 bg-warning/10 p-4 text-sm flex gap-3">
-                      <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
-                      <p>Para envíos fuera de {payments?.local_city} debes pagar el domicilio anticipado para garantizar el envío.</p>
-                    </div>
-                  )}
+                <div className="rounded-lg border border-success/30 bg-success/10 p-4 text-sm flex gap-3">
+                  <MessageCircle className="h-5 w-5 text-success shrink-0 mt-0.5" />
+                  <p className="text-muted-foreground">
+                    Tu pedido se enviará a BrrayLab por <b className="text-foreground">WhatsApp</b>. Allí confirmaremos disponibilidad y coordinaremos el método de pago.
+                  </p>
                 </div>
               </>
             )}
@@ -417,19 +373,12 @@ const Checkout = () => {
                   </Summary>
                 </div>
                 <div className="rounded-lg bg-surface-elevated border border-subtle p-4 text-sm space-y-2">
-                  <p className="font-medium">Método de pago</p>
-                  {paymentChoice === "wompi_full" && (
-                    <p className="text-muted-foreground">Pagas <b className="text-foreground">{formatPrice(total)}</b> ahora con Wompi.</p>
-                  )}
-                  {paymentChoice === "cod" && isLocalCity && (
-                    <p className="text-muted-foreground">Contraentrega · pagas <b className="text-foreground">{formatPrice(total)}</b> al recibir.</p>
-                  )}
-                  {paymentChoice === "cod" && !isLocalCity && (
-                    <>
-                      <p className="text-muted-foreground">Anticipas <b className="text-foreground">{formatPrice(shippingCost)}</b> (envío) con Wompi.</p>
-                      <p className="text-muted-foreground">Pagas <b className="text-foreground">{formatPrice(subtotal)}</b> al recibir el producto.</p>
-                    </>
-                  )}
+                  <p className="font-medium inline-flex items-center gap-2">
+                    <MessageCircle className="h-4 w-4 text-success" /> Confirmación por WhatsApp
+                  </p>
+                  <p className="text-muted-foreground">
+                    Al enviar, abriremos un chat con BrrayLab con el resumen de tu pedido. El pago se coordina por allí.
+                  </p>
                 </div>
                 <ul className="divide-y divide-subtle">
                   {items.map((it) => {
@@ -461,10 +410,10 @@ const Checkout = () => {
                 <button
                   onClick={placeOrder}
                   disabled={submitting}
-                  className="h-12 px-7 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary-glow transition-all active:scale-[0.97] shadow-purple disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  className="h-12 px-7 rounded-xl bg-success text-white font-medium hover:opacity-90 transition-all active:scale-[0.97] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
                 >
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {paymentChoice === "wompi_full" || (paymentChoice === "cod" && !isLocalCity) ? "Pagar con Wompi" : "Confirmar pedido"}
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageCircle className="h-4 w-4" />}
+                  Enviar pedido por WhatsApp
                 </button>
               )}
             </div>
@@ -498,12 +447,6 @@ const Checkout = () => {
               <span className="text-sm">Total</span>
               <span className="font-display font-extrabold text-2xl text-primary-glow">{formatPrice(total)}</span>
             </div>
-            {step >= 2 && (
-              <div className="text-xs text-muted-foreground border-t border-subtle pt-3 space-y-1">
-                <div className="flex justify-between"><span>Pagas ahora</span><span className="text-foreground">{formatPrice(amounts.paidOnline)}</span></div>
-                <div className="flex justify-between"><span>Al recibir</span><span className="text-foreground">{formatPrice(amounts.dueOnDelivery)}</span></div>
-              </div>
-            )}
             <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2">
               <span className="inline-flex items-center gap-1"><Lock className="h-3.5 w-3.5" /> Seguro</span>
               <span className="inline-flex items-center gap-1"><Truck className="h-3.5 w-3.5" /> Rápido</span>
@@ -515,29 +458,6 @@ const Checkout = () => {
     </section>
   );
 };
-
-const PaymentOption = ({
-  selected, onClick, icon: Icon, title, desc,
-}: {
-  selected: boolean; onClick: () => void; icon: React.ComponentType<{ className?: string }>; title: string; desc: string;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={cn(
-      "w-full text-left rounded-xl border p-4 flex gap-3 transition-all",
-      selected ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "border-subtle bg-surface-elevated hover:border-primary-glow"
-    )}
-  >
-    <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", selected ? "bg-primary text-primary-foreground" : "bg-surface text-primary-glow")}>
-      <Icon className="h-5 w-5" />
-    </div>
-    <div className="flex-1 min-w-0">
-      <p className="font-medium text-sm">{title}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
-    </div>
-  </button>
-);
 
 const Field = ({
   label, value, onChange, error, placeholder, type = "text",
