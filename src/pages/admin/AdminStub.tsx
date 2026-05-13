@@ -1346,7 +1346,7 @@ const HeroSettingsSection = () => {
   );
 };
 
-type PaymentMethod = "wompi_full" | "cash_on_delivery" | "wompi_shipping_cod_product";
+type PaymentMethod = "wompi_full" | "cash_on_delivery" | "wompi_shipping_cod_product" | "whatsapp_manual";
 type PaymentFilter = "all" | PaymentMethod;
 
 const paymentMethodMeta: Record<PaymentMethod, { label: string; className: string }> = {
@@ -1361,6 +1361,10 @@ const paymentMethodMeta: Record<PaymentMethod, { label: string; className: strin
   wompi_shipping_cod_product: {
     label: "Wompi + Contraentrega",
     className: "border-info/30 bg-info/15 text-info",
+  },
+  whatsapp_manual: {
+    label: "💬 WhatsApp",
+    className: "border-success/30 bg-success/15 text-success",
   },
 };
 
