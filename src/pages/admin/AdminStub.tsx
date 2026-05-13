@@ -1700,9 +1700,46 @@ const OrderDetailModal = ({ order, open, onOpenChange }: { order: OrderRow | nul
                   Marcar como “Pagado” o “Pago parcial” pasa el pedido a <em>Procesando</em> automáticamente.
                 </p>
               </FormField>
+              {paymentStatus === "partial_paid" && (
+                <div className="space-y-3 rounded-md border border-warning/30 bg-warning/5 p-3">
+                  <FormField label="Anticipo pagado (COP)">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={totalNum}
+                      step="1000"
+                      value={paidInput}
+                      onChange={(event) => setPaidInput(event.target.value)}
+                      className="bg-surface-elevated border-subtle"
+                    />
+                  </FormField>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Saldo pendiente</span>
+                    <span className="font-medium text-warning">{formatPrice(dueComputed)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-subtle pt-2">
+                    <span className="font-medium">Total del pedido</span>
+                    <span className="font-display font-bold">{formatPrice(totalNum)}</span>
+                  </div>
+                  {paidNum > totalNum && (
+                    <p className="text-xs text-destructive">El anticipo no puede ser mayor al total.</p>
+                  )}
+                  {paidNum <= 0 && (
+                    <p className="text-xs text-destructive">El anticipo debe ser mayor a 0.</p>
+                  )}
+                  {paidNum >= totalNum && paidNum > 0 && (
+                    <p className="text-xs text-success">Al guardar, el pedido se marcará como Pagado.</p>
+                  )}
+                </div>
+              )}
               <FormField label="Número de seguimiento">
                 <Input value={tracking} onChange={(event) => setTracking(event.target.value)} className="bg-surface-elevated border-subtle" />
               </FormField>
+              {order?.updated_at && (
+                <p className="text-xs text-muted-foreground">
+                  Última actualización: {formatShortDate(order.updated_at)}
+                </p>
+              )}
             </div>
           </div>
         )}
