@@ -92,7 +92,20 @@ type ReviewRow = Tables<"reviews"> & {
   profile?: Pick<ProfileRow, "name" | "email"> | null;
 };
 
-type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes" | "hero" | "pagos" | "apariencia";
+type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "testimonios" | "mensajes" | "hero" | "pagos" | "apariencia";
+
+type TestimonialRow = {
+  id: string;
+  name: string;
+  role: string | null;
+  content: string;
+  rating: number | null;
+  image_url: string | null;
+  active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
 
 type ProductForm = {
   id?: string;
@@ -117,6 +130,7 @@ const navItems: Array<{ key: SectionKey; to: string; label: string; icon: Compon
   { key: "pedidos", to: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { key: "clientes", to: "/admin/clientes", label: "Clientes", icon: Users },
   { key: "resenas", to: "/admin/resenas", label: "Reseñas", icon: MessageSquare },
+  { key: "testimonios", to: "/admin/testimonios", label: "Testimonios Home", icon: Star },
   { key: "mensajes", to: "/admin/mensajes", label: "Mensajes", icon: Mail },
   { key: "hero", to: "/admin/hero", label: "Hero", icon: ImageIcon },
   { key: "pagos", to: "/admin/pagos", label: "Pagos & Envíos", icon: CreditCard },
@@ -211,6 +225,7 @@ const AdminStub = () => {
           {section === "pedidos" && <OrdersSection />}
           {section === "clientes" && <CustomersSection />}
           {section === "resenas" && <ReviewsSection />}
+          {section === "testimonios" && <TestimonialsSection />}
           {section === "mensajes" && <MessagesSection />}
           {section === "hero" && <HeroSettingsSection />}
           {section === "pagos" && <PaymentSettingsSection />}
@@ -2319,6 +2334,306 @@ const AppearanceSection = () => {
           </div>
         </div>
       </div>
+    </section>
+  );
+};
+
+// ---------- TESTIMONIOS DEL HOME ----------
+const emptyTestimonial = {
+  id: "" as string,
+  name: "",
+  role: "",
+  content: "",
+  rating: "5",
+  image_url: "",
+  active: true,
+  display_order: "0",
+};
+
+const TestimonialsSection = () => {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState<typeof emptyTestimonial | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["admin-testimonials"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("home_testimonials")
+        .select("*")
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as TestimonialRow[];
+    },
+  });
+
+  const saveMut = useMutation({
+    mutationFn: async (form: typeof emptyTestimonial) => {
+      const payload = {
+        name: form.name.trim(),
+        role: form.role.trim() || null,
+        content: form.content.trim(),
+        rating: form.rating ? Math.max(1, Math.min(5, Number(form.rating))) : null,
+        image_url: form.image_url.trim() || null,
+        active: form.active,
+        display_order: Number(form.display_order || 0),
+      };
+      if (!payload.name || !payload.content) throw new Error("Nombre y contenido son obligatorios");
+      if (form.id) {
+        const { error } = await (supabase as any).from("home_testimonials").update(payload).eq("id", form.id);
+        if (error) throw error;
+      } else {
+        const { error } = await (supabase as any).from("home_testimonials").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Testimonio guardado");
+      qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["home-testimonials"] });
+      setEditing(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleMut = useMutation({
+    mutationFn: async (row: TestimonialRow) => {
+      const { error } = await (supabase as any)
+        .from("home_testimonials")
+        .update({ active: !row.active })
+        .eq("id", row.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["home-testimonials"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const orderMut = useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: number }) => {
+      const { error } = await (supabase as any)
+        .from("home_testimonials")
+        .update({ display_order: value })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["home-testimonials"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await (supabase as any).from("home_testimonials").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Testimonio eliminado");
+      qc.invalidateQueries({ queryKey: ["admin-testimonials"] });
+      qc.invalidateQueries({ queryKey: ["home-testimonials"] });
+      setDeleteId(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <section className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold">Testimonios del Home</h1>
+          <p className="text-sm text-muted-foreground">Reseñas que se muestran en el carrusel de la home (BrrayGang).</p>
+        </div>
+        <Button onClick={() => setEditing({ ...emptyTestimonial })} className="gap-2">
+          <Plus className="h-4 w-4" /> Nuevo testimonio
+        </Button>
+      </div>
+
+      <div className="rounded-md border border-subtle bg-surface overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-16">Orden</TableHead>
+              <TableHead>Cliente</TableHead>
+              <TableHead className="hidden md:table-cell">Texto</TableHead>
+              <TableHead className="w-20">Rating</TableHead>
+              <TableHead className="w-24">Activa</TableHead>
+              <TableHead className="w-32 text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  <Loader2 className="mx-auto h-5 w-5 animate-spin" />
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-10 text-center text-muted-foreground">
+                  Aún no hay testimonios. Crea el primero.
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={r.display_order}
+                      onChange={(e) => orderMut.mutate({ id: r.id, value: Number(e.target.value) })}
+                      className="h-8 w-16 bg-surface-elevated"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      {r.image_url ? (
+                        <img src={r.image_url} alt={r.name} className="h-9 w-9 rounded-full object-cover" />
+                      ) : (
+                        <div className="h-9 w-9 rounded-full bg-primary/20 text-primary-glow flex items-center justify-center text-xs font-bold">
+                          {r.name.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <div className="font-medium text-sm">{r.name}</div>
+                        {r.role && <div className="text-xs text-muted-foreground">{r.role}</div>}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell max-w-md text-sm text-muted-foreground line-clamp-2">
+                    {r.content}
+                  </TableCell>
+                  <TableCell className="text-sm">{r.rating ? `${r.rating}★` : "—"}</TableCell>
+                  <TableCell>
+                    <Switch checked={r.active} onCheckedChange={() => toggleMut.mutate(r)} />
+                  </TableCell>
+                  <TableCell className="text-right space-x-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        setEditing({
+                          id: r.id,
+                          name: r.name,
+                          role: r.role ?? "",
+                          content: r.content,
+                          rating: r.rating ? String(r.rating) : "",
+                          image_url: r.image_url ?? "",
+                          active: r.active,
+                          display_order: String(r.display_order),
+                        })
+                      }
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(r.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editing?.id ? "Editar testimonio" : "Nuevo testimonio"}</DialogTitle>
+            <DialogDescription>Estos textos aparecen en el carrusel "Lo que dice la BrrayGang".</DialogDescription>
+          </DialogHeader>
+          {editing && (
+            <div className="space-y-4">
+              <div>
+                <Label>Nombre</Label>
+                <Input value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+              </div>
+              <div>
+                <Label>Rol / ciudad (opcional)</Label>
+                <Input
+                  value={editing.role}
+                  onChange={(e) => setEditing({ ...editing, role: e.target.value })}
+                  placeholder="Cliente en Cali"
+                />
+              </div>
+              <div>
+                <Label>Contenido</Label>
+                <Textarea
+                  rows={4}
+                  value={editing.content}
+                  onChange={(e) => setEditing({ ...editing, content: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Rating (1-5)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={5}
+                    value={editing.rating}
+                    onChange={(e) => setEditing({ ...editing, rating: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Orden</Label>
+                  <Input
+                    type="number"
+                    value={editing.display_order}
+                    onChange={(e) => setEditing({ ...editing, display_order: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>URL de imagen (opcional)</Label>
+                <Input
+                  value={editing.image_url}
+                  onChange={(e) => setEditing({ ...editing, image_url: e.target.value })}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={editing.active}
+                  onCheckedChange={(v) => setEditing({ ...editing, active: v })}
+                />
+                <Label className="cursor-pointer">Activa</Label>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => editing && saveMut.mutate(editing)} disabled={saveMut.isPending}>
+              {saveMut.isPending ? "Guardando…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar testimonio?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción no se puede deshacer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteId && deleteMut.mutate(deleteId)}
+              className="bg-destructive text-destructive-foreground"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 };

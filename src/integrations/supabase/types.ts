@@ -161,6 +161,45 @@ export type Database = {
         }
         Relationships: []
       }
+      home_testimonials: {
+        Row: {
+          active: boolean
+          content: string
+          created_at: string
+          display_order: number
+          id: string
+          image_url: string | null
+          name: string
+          rating: number | null
+          role: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          content: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          name: string
+          rating?: number | null
+          role?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          content?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          image_url?: string | null
+          name?: string
+          rating?: number | null
+          role?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_addresses: {
         Row: {
           address: string

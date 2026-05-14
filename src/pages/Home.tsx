@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Users, Star } from "lucide-react";
+import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Users } from "lucide-react";
 import heroImg from "@/assets/hero-airpods.jpg";
-import { reviews } from "@/data/products";
 import { useProducts, useCategories } from "@/hooks/useProducts";
 import { useHeroSettings } from "@/hooks/useHeroSettings";
 import { ProductCard } from "@/components/brraylab/ProductCard";
+import { TestimonialsCarousel } from "@/components/brraylab/TestimonialsCarousel";
 
 const Home = () => {
   const { data: products = [] } = useProducts();
@@ -181,24 +181,8 @@ const Home = () => {
           <p className="text-xs uppercase tracking-widest text-primary-glow mb-2">Reseñas reales</p>
           <h2 className="font-display font-extrabold text-3xl md:text-5xl">Lo que dice la BrrayGang</h2>
         </div>
-        <div className="grid md:grid-cols-3 gap-5">
-          {reviews.map((r, i) => (
-            <div
-              key={i}
-              className="rounded-xl bg-surface border border-subtle p-6 flex flex-col gap-4 hover:border-primary/40 transition-colors"
-            >
-              <div className="flex gap-0.5 text-primary-glow">
-                {Array.from({ length: r.rating }).map((_, idx) => (
-                  <Star key={idx} className="h-4 w-4 fill-current" />
-                ))}
-              </div>
-              <p className="text-sm text-foreground/90 leading-relaxed">"{r.comment}"</p>
-              <div className="mt-auto pt-3 border-t border-subtle">
-                <p className="font-medium text-sm">{r.name}</p>
-                <p className="text-xs text-muted-foreground">{r.city}</p>
-              </div>
-            </div>
-          ))}
+        <div className="max-w-3xl mx-auto">
+          <TestimonialsCarousel />
         </div>
       </section>
     </>
