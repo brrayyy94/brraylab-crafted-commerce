@@ -108,7 +108,7 @@ export const MiniCart = () => {
                 onClick={closeMini}
                 className="h-11 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary-glow text-sm font-medium transition-colors"
               >
-                Pagar ahora
+                Continuar compra
               </Link>
             </div>
           </div>
