@@ -92,7 +92,20 @@ type ReviewRow = Tables<"reviews"> & {
   profile?: Pick<ProfileRow, "name" | "email"> | null;
 };
 
-type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "mensajes" | "hero" | "pagos" | "apariencia";
+type SectionKey = "dashboard" | "productos" | "categorias" | "pedidos" | "clientes" | "resenas" | "testimonios" | "mensajes" | "hero" | "pagos" | "apariencia";
+
+type TestimonialRow = {
+  id: string;
+  name: string;
+  role: string | null;
+  content: string;
+  rating: number | null;
+  image_url: string | null;
+  active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
+};
 
 type ProductForm = {
   id?: string;
@@ -117,6 +130,7 @@ const navItems: Array<{ key: SectionKey; to: string; label: string; icon: Compon
   { key: "pedidos", to: "/admin/pedidos", label: "Pedidos", icon: ShoppingBag },
   { key: "clientes", to: "/admin/clientes", label: "Clientes", icon: Users },
   { key: "resenas", to: "/admin/resenas", label: "Reseñas", icon: MessageSquare },
+  { key: "testimonios", to: "/admin/testimonios", label: "Testimonios Home", icon: Star },
   { key: "mensajes", to: "/admin/mensajes", label: "Mensajes", icon: Mail },
   { key: "hero", to: "/admin/hero", label: "Hero", icon: ImageIcon },
   { key: "pagos", to: "/admin/pagos", label: "Pagos & Envíos", icon: CreditCard },
@@ -211,6 +225,7 @@ const AdminStub = () => {
           {section === "pedidos" && <OrdersSection />}
           {section === "clientes" && <CustomersSection />}
           {section === "resenas" && <ReviewsSection />}
+          {section === "testimonios" && <TestimonialsSection />}
           {section === "mensajes" && <MessagesSection />}
           {section === "hero" && <HeroSettingsSection />}
           {section === "pagos" && <PaymentSettingsSection />}
