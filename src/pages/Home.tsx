@@ -138,7 +138,7 @@ const Home = () => {
       <section className="container py-12 md:py-20">
         <div className="mb-10">
           <p className="text-xs uppercase tracking-widest text-primary-glow mb-2">Lo más pedido</p>
-          <h2 className="font-display font-extrabold text-3xl md:text-5xl">Los favoritos de la tribu</h2>
+          <h2 className="font-display font-extrabold text-3xl md:text-5xl">Los favoritos de la BrrayGang</h2>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
           {featured.map((p, i) => (
@@ -162,7 +162,7 @@ const Home = () => {
             { icon: BadgeCheck, label: "Productos probados", desc: "Calidad antes que catálogo." },
             { icon: ShieldCheck, label: "Garantía incluida", desc: "Respaldamos lo que vendemos." },
             { icon: Truck, label: "Envío a Colombia", desc: "Bogotá, Cali, Medellín y más." },
-            { icon: Users, label: "Miles de clientes", desc: "La tribu sigue creciendo." },
+            { icon: Users, label: "Miles de clientes", desc: "La BrrayGang sigue creciendo." },
           ].map((t) => (
             <div key={t.label} className="text-center md:text-left flex flex-col items-center md:items-start gap-2">
               <div className="h-11 w-11 rounded-xl bg-primary/15 flex items-center justify-center text-primary-glow">
@@ -179,7 +179,7 @@ const Home = () => {
       <section className="container py-16 md:py-24">
         <div className="text-center mb-12">
           <p className="text-xs uppercase tracking-widest text-primary-glow mb-2">Reseñas reales</p>
-          <h2 className="font-display font-extrabold text-3xl md:text-5xl">Lo que dice la tribu</h2>
+          <h2 className="font-display font-extrabold text-3xl md:text-5xl">Lo que dice la BrrayGang</h2>
         </div>
         <div className="grid md:grid-cols-3 gap-5">
           {reviews.map((r, i) => (
