@@ -9,9 +9,10 @@ import { TestimonialsCarousel } from "@/components/brraylab/TestimonialsCarousel
 const Home = () => {
   const { data: products = [] } = useProducts();
   const { data: categories = [] } = useCategories();
-  const { data: hero } = useHeroSettings();
+  const { data: hero, isLoading: heroLoading, isFetched: heroFetched } = useHeroSettings();
   const featured = products.slice(0, 4);
 
+  const heroReady = heroFetched && !heroLoading;
   const heroType = hero?.type ?? "none";
   const overlayOpacity = hero?.overlay_opacity ?? 0.5;
 
