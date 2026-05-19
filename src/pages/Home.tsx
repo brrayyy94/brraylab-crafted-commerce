@@ -9,9 +9,10 @@ import { TestimonialsCarousel } from "@/components/brraylab/TestimonialsCarousel
 const Home = () => {
   const { data: products = [] } = useProducts();
   const { data: categories = [] } = useCategories();
-  const { data: hero } = useHeroSettings();
+  const { data: hero, isLoading: heroLoading, isFetched: heroFetched } = useHeroSettings();
   const featured = products.slice(0, 4);
 
+  const heroReady = heroFetched && !heroLoading;
   const heroType = hero?.type ?? "none";
   const overlayOpacity = hero?.overlay_opacity ?? 0.5;
 
@@ -20,38 +21,47 @@ const Home = () => {
       {/* HERO */}
       <section data-hero className="relative isolate min-h-svh flex items-center overflow-hidden bg-black -mt-16">
         <div className="absolute inset-0 z-0">
-          {heroType === "video" && hero?.video_url ? (
-            <video
-              src={hero.video_url}
-              poster={hero.image_url ?? heroImg}
-              autoPlay
-              muted
-              loop
-              playsInline
-              className="h-full w-full object-cover"
-            />
-          ) : heroType === "image" && hero?.image_url ? (
-            <img
-              src={hero.image_url}
-              alt=""
-              className="h-full w-full object-cover bg-fixed"
-              style={{ backgroundAttachment: "fixed" }}
-              width={1920}
-              height={1200}
-            />
-          ) : (
-            <img src={heroImg} alt="" className="h-full w-full object-cover opacity-90" width={1920} height={1200} />
-          )}
-          {heroType !== "none" ? (
-            <>
-              <div className="absolute inset-0 bg-black" style={{ opacity: overlayOpacity }} />
-              {/* light bottom fade for text legibility, no full background wash */}
-              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent" />
-            </>
+          {!heroReady ? (
+            // Dark skeleton placeholder while hero settings are fetched — avoids flashing the default asset
+            <div className="absolute inset-0 bg-[#0d0d0d] overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10 animate-pulse" />
+              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background to-transparent" />
+            </div>
           ) : (
             <>
-              <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/30 to-background" />
-              <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/40" />
+              {heroType === "video" && hero?.video_url ? (
+                <video
+                  src={hero.video_url}
+                  poster={hero.image_url ?? heroImg}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="h-full w-full object-cover"
+                />
+              ) : heroType === "image" && hero?.image_url ? (
+                <img
+                  src={hero.image_url}
+                  alt=""
+                  className="h-full w-full object-cover bg-fixed"
+                  style={{ backgroundAttachment: "fixed" }}
+                  width={1920}
+                  height={1200}
+                />
+              ) : (
+                <img src={heroImg} alt="" className="h-full w-full object-cover opacity-90" width={1920} height={1200} />
+              )}
+              {heroType !== "none" ? (
+                <>
+                  <div className="absolute inset-0 bg-black" style={{ opacity: overlayOpacity }} />
+                  <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background/80 to-transparent" />
+                </>
+              ) : (
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/30 to-background" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-background/70 via-transparent to-background/40" />
+                </>
+              )}
             </>
           )}
         </div>
