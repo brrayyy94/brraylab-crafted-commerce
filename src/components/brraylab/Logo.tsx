@@ -2,8 +2,21 @@ import { Link } from "react-router-dom";
 import { useBrandSettings } from "@/hooks/useBrandSettings";
 
 export const Logo = ({ className = "" }: { className?: string }) => {
-  const { data } = useBrandSettings();
+  const { data, isLoading, isFetched } = useBrandSettings();
   const logoUrl = data?.logo_url;
+
+  // While loading, show a dark placeholder of similar size to avoid flashing the default mark
+  if (isLoading && !isFetched) {
+    return (
+      <Link
+        to="/"
+        className={`flex items-center gap-2 ${className}`}
+        aria-label="BrrayLab inicio"
+      >
+        <div className="h-9 w-[140px] rounded-md bg-white/5 animate-pulse" />
+      </Link>
+    );
+  }
 
   return (
     <Link to="/" className={`flex items-center gap-2 group ${className}`} aria-label="BrrayLab inicio">
