@@ -146,7 +146,7 @@ const Checkout = () => {
     lines.push("");
     lines.push(`*Subtotal:* ${formatPrice(subtotal)}`);
     lines.push(`*Envio:* ${formatPrice(shippingCost)}`);
-    lines.push(`*Total:* ${formatPrice(total)}*`);
+    lines.push(`*Total:* ${formatPrice(total)}`);
     lines.push(`*Pedido #${orderNumber}*`);
     return lines.join("\n");
   };
