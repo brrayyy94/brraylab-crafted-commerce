@@ -128,9 +128,16 @@ const Checkout = () => {
 
   const buildWhatsappOrderMessage = (orderNumber: string) => {
     const lines: string[] = [];
-    lines.push("Hola BrrayLab 👋 Quiero hacer un pedido:");
+    lines.push("*Nuevo pedido - BrrayLab*");
+    lines.push("————————————————");
     lines.push("");
-    lines.push(`🛒 *Pedido ${orderNumber}*`);
+    lines.push(`*Cliente:* ${form.full_name.trim()}`);
+    lines.push(`*Tel:* ${form.phone.trim()}`);
+    lines.push(`*Direccion:* ${form.address.trim()}, ${form.city.trim()}, ${form.department}`);
+    lines.push(`*Email:* ${form.email.trim().toLowerCase()}`);
+    if (form.notes.trim()) {
+      lines.push(`*Notas:* ${form.notes.trim()}`);
+    }
     lines.push("");
     lines.push("*Productos:*");
     items.forEach((it) => {
@@ -138,21 +145,12 @@ const Checkout = () => {
     });
     lines.push("");
     lines.push(`*Subtotal:* ${formatPrice(subtotal)}`);
-    lines.push(`*Envío:* ${formatPrice(shippingCost)}`);
+    lines.push(`*Envio:* ${formatPrice(shippingCost)}`);
     lines.push(`*Total:* ${formatPrice(total)}`);
-    lines.push("");
-    lines.push("*Datos de entrega:*");
-    lines.push(`Nombre: ${form.full_name.trim()}`);
-    lines.push(`Teléfono: ${form.phone.trim()}`);
-    lines.push(`Dirección: ${form.address.trim()}, ${form.city.trim()}, ${form.department}`);
-    lines.push(`Email: ${form.email.trim().toLowerCase()}`);
-    if (form.notes.trim()) {
-      lines.push(`Notas: ${form.notes.trim()}`);
-    }
-    lines.push("");
-    lines.push("Por favor confirmar disponibilidad y método de pago 🙏");
+    lines.push(`*Pedido #${orderNumber}*`);
     return lines.join("\n");
   };
+
 
   const placeOrder = async () => {
     if (submitting) return;
@@ -175,10 +173,6 @@ const Checkout = () => {
       setStep(!dataParsed.success ? 1 : 2);
       return;
     }
-
-    // Pre-abrir la pestaña SINCRÓNICAMENTE (antes del await) para evitar el
-    // bloqueador de pop-ups. Luego le asignamos la URL real de WhatsApp.
-    const waWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
 
     setSubmitting(true);
     try {
@@ -208,28 +202,24 @@ const Checkout = () => {
         throw new Error("No se pudo crear la orden");
       }
 
-      // Abrir WhatsApp con el resumen del pedido.
+      // Construir mensaje y URL de WhatsApp.
       const message = buildWhatsappOrderMessage(order.order_number);
       const waUrl = buildWhatsappLink(BRRAYLAB_WHATSAPP, message);
-      if (waWindow && !waWindow.closed) {
-        waWindow.location.href = waUrl;
-      } else {
-        // Fallback: si el navegador bloqueó la pre-apertura, navegamos en la misma pestaña.
-        window.location.href = waUrl;
-      }
 
       clear();
       toast.success("Pedido enviado", { description: `Orden ${order.order_number}` });
-      navigate(`/orden/${order.order_number}`);
+
+      // Redirigir en la MISMA pestaña para evitar about:blank por bloqueadores de pop-ups.
+      // En móvil esto abre la app de WhatsApp; en desktop, web.whatsapp.com o la app instalada.
+      window.location.href = waUrl;
     } catch (err) {
-      // Si falló el pedido, cerramos la pestaña pre-abierta para no dejar basura.
-      if (waWindow && !waWindow.closed) waWindow.close();
       console.error("[checkout] error", err);
       toast.error("No se pudo procesar el pedido", { description: err instanceof Error ? err.message : "Intenta de nuevo." });
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const stepperItems = useMemo(() => [1, 2, 3] as const, []);
 
