@@ -174,10 +174,6 @@ const Checkout = () => {
       return;
     }
 
-    // Pre-abrir la pestaña SINCRÓNICAMENTE (antes del await) para evitar el
-    // bloqueador de pop-ups. Luego le asignamos la URL real de WhatsApp.
-    const waWindow = window.open("about:blank", "_blank", "noopener,noreferrer");
-
     setSubmitting(true);
     try {
       const itemsPayload = items.map((it) => ({
@@ -206,28 +202,24 @@ const Checkout = () => {
         throw new Error("No se pudo crear la orden");
       }
 
-      // Abrir WhatsApp con el resumen del pedido.
+      // Construir mensaje y URL de WhatsApp.
       const message = buildWhatsappOrderMessage(order.order_number);
       const waUrl = buildWhatsappLink(BRRAYLAB_WHATSAPP, message);
-      if (waWindow && !waWindow.closed) {
-        waWindow.location.href = waUrl;
-      } else {
-        // Fallback: si el navegador bloqueó la pre-apertura, navegamos en la misma pestaña.
-        window.location.href = waUrl;
-      }
 
       clear();
       toast.success("Pedido enviado", { description: `Orden ${order.order_number}` });
-      navigate(`/orden/${order.order_number}`);
+
+      // Redirigir en la MISMA pestaña para evitar about:blank por bloqueadores de pop-ups.
+      // En móvil esto abre la app de WhatsApp; en desktop, web.whatsapp.com o la app instalada.
+      window.location.href = waUrl;
     } catch (err) {
-      // Si falló el pedido, cerramos la pestaña pre-abierta para no dejar basura.
-      if (waWindow && !waWindow.closed) waWindow.close();
       console.error("[checkout] error", err);
       toast.error("No se pudo procesar el pedido", { description: err instanceof Error ? err.message : "Intenta de nuevo." });
     } finally {
       setSubmitting(false);
     }
   };
+
 
   const stepperItems = useMemo(() => [1, 2, 3] as const, []);
 
