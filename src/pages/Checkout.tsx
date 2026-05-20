@@ -128,9 +128,16 @@ const Checkout = () => {
 
   const buildWhatsappOrderMessage = (orderNumber: string) => {
     const lines: string[] = [];
-    lines.push("Hola BrrayLab 👋 Quiero hacer un pedido:");
+    lines.push("*Nuevo pedido - BrrayLab*");
+    lines.push("————————————————");
     lines.push("");
-    lines.push(`🛒 *Pedido ${orderNumber}*`);
+    lines.push(`*Cliente:* ${form.full_name.trim()}`);
+    lines.push(`*Tel:* ${form.phone.trim()}`);
+    lines.push(`*Direccion:* ${form.address.trim()}, ${form.city.trim()}, ${form.department}`);
+    lines.push(`*Email:* ${form.email.trim().toLowerCase()}`);
+    if (form.notes.trim()) {
+      lines.push(`*Notas:* ${form.notes.trim()}`);
+    }
     lines.push("");
     lines.push("*Productos:*");
     items.forEach((it) => {
@@ -138,21 +145,12 @@ const Checkout = () => {
     });
     lines.push("");
     lines.push(`*Subtotal:* ${formatPrice(subtotal)}`);
-    lines.push(`*Envío:* ${formatPrice(shippingCost)}`);
-    lines.push(`*Total:* ${formatPrice(total)}`);
-    lines.push("");
-    lines.push("*Datos de entrega:*");
-    lines.push(`Nombre: ${form.full_name.trim()}`);
-    lines.push(`Teléfono: ${form.phone.trim()}`);
-    lines.push(`Dirección: ${form.address.trim()}, ${form.city.trim()}, ${form.department}`);
-    lines.push(`Email: ${form.email.trim().toLowerCase()}`);
-    if (form.notes.trim()) {
-      lines.push(`Notas: ${form.notes.trim()}`);
-    }
-    lines.push("");
-    lines.push("Por favor confirmar disponibilidad y método de pago 🙏");
+    lines.push(`*Envio:* ${formatPrice(shippingCost)}`);
+    lines.push(`*Total:* ${formatPrice(total)}*`);
+    lines.push(`*Pedido #${orderNumber}*`);
     return lines.join("\n");
   };
+
 
   const placeOrder = async () => {
     if (submitting) return;
